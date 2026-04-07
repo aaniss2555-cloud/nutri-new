@@ -1,0 +1,60 @@
+%-------------------------------------------------------
+% Listings (Source codes) configuration
+%-------------------------------------------------------
+
+\definecolor{color-lst-string}{RGB}{166,95,18}
+\definecolor{color-lst-annotation}{RGB}{128,128,0}
+\definecolor{color-lst-constant}{RGB}{5,133,5}
+\definecolor{color-lst-keyword}{RGB}{33,33,255}
+\definecolor{color-lst-class}{RGB}{0,112,192}
+\definecolor{color-lst-accessor}{RGB}{125,0,84}
+\definecolor{color-lst-red}{RGB}{255,0,0}
+\definecolor{color-lst-comment}{RGB}{168,166,171}
+
+% XML
+\lstdefinelanguage{XML}{
+	alsoletter=-.,
+	morestring=[b]",
+	morecomment=[s]{<?}{?>},
+	morecomment=[s]{<!--}{-->},
+	morekeywords={
+		manifest,application,activity,uses-permission,
+	%	...
+	},
+}
+
+% Java
+\lstdefinelanguage{Java}{
+	alsoletter=&,
+	deletekeywords=SAVE,%	language=Java,
+	morestring=[b]',
+	morestring=[b]",
+	morecomment=[s]{/*}{*/},
+	morecomment=[l]{//},
+	keywordstyle={[1]\color{color-lst-keyword}},
+	morekeywords=[1]{
+		super,import,class,interface,void,extends,implements,new,this,null,true,false,return,break,
+		if,else,for,while,foreach,switch,case,
+		int,long,float,double,boolean,&&,
+	},
+	keywordstyle={[2]\color{color-lst-class}},
+	morekeywords=[2]{
+		Bundle,String,Activity,R,View,TextView,Button,List,ArrayList,ViewGroup,Build,Manifest,
+%		...
+	},
+	keywordstyle={[3]\color{color-lst-accessor}},
+	morekeywords=[3]{public,private,protected,package},
+	keywordstyle={[4]\color{color-lst-annotation}},
+	morekeywords=[4]{@Override},
+	keywordstyle={[5]\color{color-lst-constant}},
+	morekeywords=[5]{
+		LENGTH\_LONG,LENGTH\_SHORT,ACTION_CALL,RESULT_OK,
+%		...
+	},
+}
+
+% HTML
+
+% Javascript
+
+% ...

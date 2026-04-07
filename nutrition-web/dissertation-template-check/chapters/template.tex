@@ -1,0 +1,106 @@
+\chapter{Template Items} \label{chap:template}
+
+This part contains the typographical elements of the template, to be used in writing your baechelor dissertation. A course on scientific writing using \LaTeX{} is available at:
+\url{https://drive.google.com/file/d/1coBxyvq-XRw5Sr3GO-VDJhYsPSLOQpRD/}
+\\
+\\
+\textcolor{red}{
+	This chapter aims to give you examples of the template. You must absolutely remove it during the final version of the thesis.
+}
+
+\section{Title - Level 2} \label{sec:example}
+\subsection{Title - Level 3}
+\subsubsection{Title - Level 4}
+
+\section*{Title - Level 2 (Unnumbered)}
+\subsection*{Title - Level 3 (Unnumbered)}
+\subsubsection*{Title - Level 4 (Unnumbered)}
+
+\section{Lists of Items}
+This is normal text. followed by a list of items:
+
+\firmlist
+\begin{itemize}
+	\item Item 1	
+	\item Item 2
+	\begin{itemize}
+		\item Item A
+		\item Item B
+		\begin{itemize}
+			\item Item I
+			\item Item II
+			\item ...
+		\end{itemize}
+	\end{itemize}
+\end{itemize}
+
+\noindent
+And here is an enumerated list of items:
+
+\begin{enumerate}
+	\item Item 1	
+	\item Item 2
+	\begin{enumerate}
+		\item Item A
+		\item Item B
+		\begin{enumerate}
+			\item Item I
+			\item Item II
+			\item ...
+		\end{enumerate}
+	\end{enumerate}
+\end{enumerate}
+
+\section{Figures, Tables and Algorithms}
+You can define several types of floating elements: Figures, tables, and algorithms \ref{hassan2020iot}.
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=2.5cm]{figures/example}
+	\caption{An example of figures}
+	\label{fig:example} % label must always be after caption
+\end{figure}
+
+\begin{table}[h]
+	\centering
+	\caption{An example of tables}
+	\input{tables/example}
+	\label{tab:example} % label must always be after caption
+\end{table}
+
+\begin{algorithm}[h] 
+	\selectlanguage{french}
+	\input{algorithms/example}
+	\caption{An example of algorithms}
+	\label{algo:example} % label must always be after caption
+\end{algorithm}
+
+\section{Cross-Referencing}
+
+By using labels, it is possible to reference different elements of the document. As examples, Chapter \ref{chap:template}, Section \ref{sec:example}, Figure \ref{fig:example}, Table \ref{tab:example}, Algorithm \ref{algo:example} and Definition \ref{def:example}.
+
+
+\begin{definition} \label{def:example}
+	(Title of the definition)\\
+	An example of definitions, $E=mc^2$...
+\end{definition}
+
+In addition to definitions, you can use theorems, proofs, remarks, notations, lemmas, or propositions.
+
+\section{Source Codes}
+
+You can also introduce source codes, like the following example which is written in Java language (The syntax highlighting can be customized in the file \texttt{"/macros.tex"}):
+
+\begin{sourcecode}{/src/A.java}
+	\lstinputlisting[language=Java]{listings/A.java}
+\end{sourcecode}
+
+\section{Bibliographic Citations}
+
+References are managed using the Bib\TeX{} tool. The sources are stored and organized in the file \texttt{"bibliography.bib"}. To cite a source in the text, there are several possibilities:
+
+\begin{itemize}
+	\item \verb|\citet{bar73}| \quad $\Rightarrow$ \quad \citet{bar73} % Bardeen et al. [1973]
+		\item \verb|\citep{bar73}| \quad $\Rightarrow$ \quad \citep{bar73} % [Bardeen et al., 1973]
+	\item \verb|\citep[see][]{bar73}| \quad $\Rightarrow$ \quad \citep[see][]{bar73} % [see Bardeen et al., 1973]
+\end{itemize}

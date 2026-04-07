@@ -1,0 +1,54 @@
+\documentclass{masterthesis-uc2-en} 
+\usepackage{scrextend}
+
+%% Metadata
+\department{Department of Fundamental Computing and its Applications (IFA)}
+\specialty{Computer Sciences (SCI)}
+\title{A Website for Personalized Dietary
+Assessment and AI-Assisted Calorie Tracking} 
+\studentFullnameA{Full name of student 1}
+\studentFullnameB{Full name of student 2} 
+%\studentFullnameC{Full name of student 3}
+\supervisorFullnameA{Dr. Teacher name}
+\session{June 2026}
+
+%% Additional commands
+\input{macros}
+
+\begin{document}
+
+\frontmatter
+	\maketitlepage
+	\pagestyle{plain}
+	\include{front/acknowledgments}
+	\include{front/dedicate}  % Optional
+	
+	\addcontentsline{toc}{chapter}{Abstracts}
+	\input{front/abstract_ar} 
+	\input{front/abstract_en}
+	\input{front/abstract_fr}
+	\clearpage
+	
+	\tableofcontents
+	\listoffigures
+	\listoftables
+	\listofalgorithms  % Optional
+
+\mainmatter
+	\pagestyle{fancy}
+	%\include{chapters/introduction}
+	\include{chapters/state_of_the_art}
+ \include{chapters/Related Works}
+ 
+	% \include{chapters/contributions}
+        %\include{chapters/implementation}
+	%\include{chapters/conclusion}
+
+	\include{chapters/template} % To remove in final version
+	
+\backmatter
+	\bibliographystyle{unsrtnat}
+	\bibliography{bibliography}
+	\include{front/acronyms}
+
+\end{document}

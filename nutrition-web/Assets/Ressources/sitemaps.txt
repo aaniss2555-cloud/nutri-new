@@ -1,0 +1,6 @@
+
+Ressources:
+ - https://blog.logrocket.com/ux-design/how-to-create-ux-sitemap/
+
+Tools: 
+ - Figma 
