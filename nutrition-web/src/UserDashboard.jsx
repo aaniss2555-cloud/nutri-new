@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Bar } from "react-chartjs-2";
 import { useNavigate } from "react-router-dom";
 import api from "./services/axiosInstance";
@@ -21,12 +21,15 @@ function UserDashboard() {
   const [preview, setPreview] = useState(null);
   const [selectedDay, setSelectedDay] = useState(null);
   const [pendingCalories, setPendingCalories] = useState(null);
+  const [aiPrediction, setAiPrediction] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
   const [profile, setProfile] = useState({});
   const [plans, setPlans] = useState([]);
   const [weeklyCalories, setWeeklyCalories] = useState(Array(7).fill(0));
   const [mealHistory, setMealHistory] = useState([]);
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
+  const uploadInputRef = useRef(null);
   const navigate = useNavigate();
 
   const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -113,11 +116,18 @@ function UserDashboard() {
       return "No subscription";
     }
 
-    return `${activeSubscription.status} • ${activeSubscription.payment_status}`;
+    return `${activeSubscription.status} - ${activeSubscription.payment_status}`;
   }, [activeSubscription]);
 
-  const handleUpload = (file) => {
+  const resetUploadInput = () => {
+    if (uploadInputRef.current) {
+      uploadInputRef.current.value = "";
+    }
+  };
+
+  const handleUpload = async (file) => {
     if (!file) {
+      resetUploadInput();
       return;
     }
 
@@ -125,42 +135,87 @@ function UserDashboard() {
       showToast(
         "AI calorie tracking is not available in your current subscription.",
       );
+      resetUploadInput();
       return;
     }
 
-    if (preview) {
-      URL.revokeObjectURL(preview);
+    if (!file.type.startsWith("image/")) {
+      showToast("Please select a valid meal image.");
+      resetUploadInput();
+      return;
     }
 
-    const previewUrl = URL.createObjectURL(file);
-    setPreview(previewUrl);
+    setAiLoading(true);
+    setAiPrediction(null);
+    setPendingCalories(null);
 
-    const randomCalories = Math.floor(Math.random() * (800 - 300 + 1)) + 300;
-    setPendingCalories(randomCalories);
+    const reader = new FileReader();
+    reader.onloadend = () => setPreview(reader.result);
+    reader.readAsDataURL(file);
+
+    const formData = new FormData();
+    formData.append("image", file);
+
+    try {
+      const response = await api.post("meal-predict/", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      const prediction = response.data;
+      const firstDetection = prediction.detections?.[0];
+      const estimatedCalories =
+        prediction.total_estimated_calories_kcal ??
+        firstDetection?.estimated_calories_kcal ??
+        null;
+
+      setAiPrediction(prediction);
+      setPendingCalories(estimatedCalories);
+      showToast("AI prediction received.");
+    } catch (err) {
+      console.error("Failed to predict meal image", err);
+      setAiPrediction(null);
+      setPendingCalories(null);
+      showToast(
+        err.response?.data?.detail ||
+          "Failed to reach the AI service. Make sure it is running.",
+      );
+    } finally {
+      setAiLoading(false);
+      resetUploadInput();
+    }
   };
 
   const confirmUpload = () => {
-    if (!pendingCalories || !preview) {
+    if (!preview || !aiPrediction) {
       return;
     }
 
+    const caloriesToAdd = pendingCalories ?? 0;
     const updated = [...weeklyCalories];
-    updated[todayIndex] = (updated[todayIndex] || 0) + pendingCalories;
+    updated[todayIndex] = (updated[todayIndex] || 0) + caloriesToAdd;
     setWeeklyCalories(updated);
 
     setMealHistory((prev) => [
       {
         id: Date.now(),
         image: preview,
-        calories: pendingCalories,
+        calories: caloriesToAdd,
+        label: aiPrediction.detections?.[0]?.label || "Meal image",
+        status: aiPrediction.status,
         day: days[todayIndex],
       },
       ...prev,
     ]);
 
     setPendingCalories(null);
+    setAiPrediction(null);
     setPreview(null);
-    showToast(`Added ${pendingCalories} kcal to ${days[todayIndex]}`);
+    resetUploadInput();
+    showToast(
+      caloriesToAdd > 0
+        ? `Added ${caloriesToAdd} kcal to ${days[todayIndex]}`
+        : "Meal prediction saved.",
+    );
   };
 
   const saveProfile = async () => {
@@ -406,6 +461,7 @@ function UserDashboard() {
       ) : (
         <>
           <input
+            ref={uploadInputRef}
             type="file"
             id="mealUpload"
             accept="image/*"
@@ -419,11 +475,41 @@ function UserDashboard() {
           {preview && (
             <div className="meal-preview">
               <img src={preview} alt="Meal preview" />
-              <p>Estimated Calories: {pendingCalories ?? "-"} kcal</p>
-              {pendingCalories && (
-                <button className="confirm-btn" onClick={confirmUpload}>
-                  Confirm Add
-                </button>
+
+              {aiLoading && <p>Sending image to AI service...</p>}
+
+              {aiPrediction && (
+                <div className="ai-result-card">
+                  <div className="ai-result-header">
+                    <span>{aiPrediction.model_name}</span>
+                    <strong>{aiPrediction.status}</strong>
+                  </div>
+                  <p>
+                    Estimated Calories: {pendingCalories ?? "Not available yet"}
+                    {pendingCalories ? " kcal" : ""}
+                  </p>
+
+                  <div className="ai-detection-list">
+                    {aiPrediction.detections?.map((item, index) => (
+                      <div
+                        key={`${item.label}-${index}`}
+                        className="ai-detection-item"
+                      >
+                        <span>{item.label}</span>
+                        <strong>{Math.round(item.confidence * 100)}%</strong>
+                      </div>
+                    ))}
+                  </div>
+
+                  <p className="ai-note">
+                    This result comes from the standalone FastAPI AI service
+                    using the current trained FoodInsSeg model.
+                  </p>
+
+                  <button className="confirm-btn" onClick={confirmUpload}>
+                    Confirm Result
+                  </button>
+                </div>
               )}
             </div>
           )}
@@ -551,15 +637,36 @@ function UserDashboard() {
     <div className="dashboard-container">
       <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
         <ul>
-          <li onClick={() => setActiveSection("dashboard")}>Dashboard</li>
-          <li onClick={() => setActiveSection("subscription")}>
+          <li
+            className={activeSection === "dashboard" ? "active" : ""}
+            onClick={() => setActiveSection("dashboard")}
+          >
+            Dashboard
+          </li>
+          <li
+            className={activeSection === "subscription" ? "active" : ""}
+            onClick={() => setActiveSection("subscription")}
+          >
             My Subscription
           </li>
-          <li onClick={() => setActiveSection("nutrition-plan")}>
+          <li
+            className={activeSection === "nutrition-plan" ? "active" : ""}
+            onClick={() => setActiveSection("nutrition-plan")}
+          >
             My Nutrition Plan
           </li>
-          <li onClick={() => setActiveSection("upload")}>AI Tracking</li>
-          <li onClick={() => setActiveSection("profile")}>Profile</li>
+          <li
+            className={activeSection === "upload" ? "active" : ""}
+            onClick={() => setActiveSection("upload")}
+          >
+            AI Tracking
+          </li>
+          <li
+            className={activeSection === "profile" ? "active" : ""}
+            onClick={() => setActiveSection("profile")}
+          >
+            Profile
+          </li>
           <li
             onClick={handleLogout}
             style={{ color: "#e57373", marginTop: "auto" }}
@@ -571,13 +678,26 @@ function UserDashboard() {
 
       <div className="dashboard-main">
         <header className="dashboard-header">
-          <button className="menu-btn" onClick={toggleSidebar}>
-            ☰
+          <button
+            className="menu-btn"
+            onClick={toggleSidebar}
+            aria-label="Open menu"
+          >
+            <span></span>
+            <span></span>
+            <span></span>
           </button>
-          <h2>Welcome {profile.first_name || "User"}</h2>
+          <div className="dashboard-header-copy">
+            <span className="dashboard-header-kicker">
+              Client wellness space
+            </span>
+            <h2>Welcome {profile.first_name || "User"}</h2>
+          </div>
         </header>
 
-        <section className="dashboard-content">{renderContent()}</section>
+        <section className={`dashboard-content section-${activeSection}`}>
+          {renderContent()}
+        </section>
       </div>
 
       {toast && <div className="toast">{toast}</div>}

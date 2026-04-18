@@ -100,3 +100,4 @@ CORS_ALLOWED_ORIGINS = [
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = "noreply@nutritionapp.com"
 FRONTEND_URL = "http://localhost:5173"
+AI_SERVICE_PREDICT_URL = "http://127.0.0.1:8001/predict"

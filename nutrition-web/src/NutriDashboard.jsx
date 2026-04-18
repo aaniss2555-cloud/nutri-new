@@ -339,8 +339,8 @@ function NutriDashboard() {
               <div className="notes-card">
                 <h5>Current Subscription</h5>
                 <p>
-                  <strong>{selectedClient.active_subscription.subscription_plan.name}</strong> •{" "}
-                  {selectedClient.active_subscription.subscription_plan.duration_days} days •{" "}
+                  <strong>{selectedClient.active_subscription.subscription_plan.name}</strong>{" "}
+                  - {selectedClient.active_subscription.subscription_plan.duration_days} days -{" "}
                   {selectedClient.active_subscription.payment_status}
                 </p>
               </div>
@@ -504,10 +504,30 @@ function NutriDashboard() {
       <div className="dashboard-container">
         <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
           <ul>
-            <li onClick={() => setActiveSection("dashboard")}>Dashboard</li>
-            <li onClick={() => setActiveSection("clients")}>Clients</li>
-            <li onClick={() => setActiveSection("plans")}>Nutrition Plans</li>
-            <li onClick={() => setActiveSection("profile")}>Profile</li>
+            <li
+              className={activeSection === "dashboard" ? "active" : ""}
+              onClick={() => setActiveSection("dashboard")}
+            >
+              Dashboard
+            </li>
+            <li
+              className={activeSection === "clients" ? "active" : ""}
+              onClick={() => setActiveSection("clients")}
+            >
+              Clients
+            </li>
+            <li
+              className={activeSection === "plans" ? "active" : ""}
+              onClick={() => setActiveSection("plans")}
+            >
+              Nutrition Plans
+            </li>
+            <li
+              className={activeSection === "profile" ? "active" : ""}
+              onClick={() => setActiveSection("profile")}
+            >
+              Profile
+            </li>
             <li onClick={handleLogout} style={{ color: "#e57373", marginTop: "auto" }}>
               Logout
             </li>
@@ -516,13 +536,18 @@ function NutriDashboard() {
 
         <div className="dashboard-main">
           <header className="dashboard-header">
-            <button className="menu-btn" onClick={toggleSidebar}>
-              ☰
-            </button>
-            <h2>Welcome {profile.first_name || "Nutritionist"}</h2>
+            <button className="menu-btn" onClick={toggleSidebar} aria-label="Open menu"><span></span><span></span><span></span></button>
+            <div className="dashboard-header-copy">
+              <span className="dashboard-header-kicker">
+                Nutritionist workspace
+              </span>
+              <h2>Welcome {profile.first_name || "Nutritionist"}</h2>
+            </div>
           </header>
 
-          <section className="dashboard-content">{renderContent()}</section>
+          <section className={`dashboard-content section-${activeSection}`}>
+            {renderContent()}
+          </section>
         </div>
       </div>
 
@@ -535,7 +560,7 @@ function NutriDashboard() {
                 <p>{detailsClient.email}</p>
               </div>
               <button type="button" className="close-btn" onClick={closeClientDetails}>
-                ×
+                X
               </button>
             </div>
 
@@ -565,7 +590,7 @@ function NutriDashboard() {
             <div className="notes-card">
               <h5>Payment And Access</h5>
               <p>
-                Status: {detailsClient.active_subscription?.status || "Not active"} • Payment:{" "}
+                Status: {detailsClient.active_subscription?.status || "Not active"} - Payment:{" "}
                 {detailsClient.active_subscription?.payment_status || "Not started"}
               </p>
             </div>

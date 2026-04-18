@@ -1,0 +1,45 @@
+﻿# Python / Django
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.sqlite3
+.env
+.venv/
+venv/
+env/
+
+# Django generated/static build artifacts
+staticfiles/
+media/
+
+# Node / React
+node_modules/
+dist/
+build/
+.vite/
+.vite-temp/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Local temporary documentation extraction
+nutrition-web/dissertation-template-check/
+
+# AI service local artifacts
+ai-service/.venv/
+ai-service/.ultralytics/
+ai-service/models/
+ai-service/datasets/
+ai-service/runs/
+ai-service/uploads/
+ai-service/*.pt
+ai-service/*.pth
+ai-service/*.onnx

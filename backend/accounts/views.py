@@ -1,5 +1,8 @@
 from datetime import timedelta
 
+import requests
+from requests import RequestException
+
 from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
@@ -136,6 +139,63 @@ class MySubscriptionView(APIView):
             UserSubscriptionSerializer(subscription).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+class MealPredictView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if request.user.role != "client":
+            return Response(
+                {"detail": "Only client accounts can use AI meal prediction."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        uploaded_image = request.FILES.get("image")
+        if not uploaded_image:
+            return Response(
+                {"detail": "An image file is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        content_type = uploaded_image.content_type or "application/octet-stream"
+        ai_predict_url = getattr(
+            settings,
+            "AI_SERVICE_PREDICT_URL",
+            "http://127.0.0.1:8001/predict",
+        )
+
+        try:
+            uploaded_image.seek(0)
+            ai_response = requests.post(
+                ai_predict_url,
+                files={
+                    "image": (
+                        uploaded_image.name,
+                        uploaded_image,
+                        content_type,
+                    )
+                },
+                timeout=30,
+            )
+        except RequestException:
+            return Response(
+                {"detail": "AI service is unavailable. Make sure ai-service is running on port 8001."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        try:
+            response_data = ai_response.json()
+        except ValueError:
+            response_data = {"detail": ai_response.text or "AI service returned an invalid response."}
+
+        if ai_response.status_code >= 400:
+            return Response(
+                {"detail": "AI service rejected the image.", "ai_error": response_data},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 class PasswordResetRequestView(APIView):

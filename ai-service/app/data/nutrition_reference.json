@@ -1,0 +1,32 @@
+{
+  "rice": {
+    "display_name": "Rice",
+    "calories_per_100g": 130,
+    "default_portion_g": 180,
+    "source": "demo_reference"
+  },
+  "pasta": {
+    "display_name": "Pasta",
+    "calories_per_100g": 158,
+    "default_portion_g": 200,
+    "source": "demo_reference"
+  },
+  "chicken": {
+    "display_name": "Chicken",
+    "calories_per_100g": 165,
+    "default_portion_g": 150,
+    "source": "demo_reference"
+  },
+  "salad": {
+    "display_name": "Salad",
+    "calories_per_100g": 35,
+    "default_portion_g": 120,
+    "source": "demo_reference"
+  },
+  "mixed_meal": {
+    "display_name": "Mixed meal",
+    "calories_per_100g": 145,
+    "default_portion_g": 250,
+    "source": "demo_reference"
+  }
+}
