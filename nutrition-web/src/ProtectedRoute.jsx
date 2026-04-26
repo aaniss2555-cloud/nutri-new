@@ -46,7 +46,11 @@ function ProtectedRoute({ allowedRole, children }) {
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRole && profile.role !== allowedRole) {
+  if (allowedRole === "admin" && !profile.is_staff && !profile.is_superuser) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (allowedRole && allowedRole !== "admin" && profile.role !== allowedRole) {
     return <Navigate to="/login" replace />;
   }
 
@@ -54,3 +58,5 @@ function ProtectedRoute({ allowedRole, children }) {
 }
 
 export default ProtectedRoute;
+
+

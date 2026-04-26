@@ -25,6 +25,7 @@ function UserDashboard() {
   const [aiLoading, setAiLoading] = useState(false);
   const [profile, setProfile] = useState({});
   const [plans, setPlans] = useState([]);
+  const [consultations, setConsultations] = useState([]);
   const [weeklyCalories, setWeeklyCalories] = useState(Array(7).fill(0));
   const [mealHistory, setMealHistory] = useState([]);
   const [toast, setToast] = useState(null);
@@ -37,6 +38,17 @@ function UserDashboard() {
 
   const toggleSidebar = () => setSidebarOpen((prev) => !prev);
 
+  const formatDateTime = (value) => {
+    if (!value) {
+      return "Not scheduled";
+    }
+
+    return new Intl.DateTimeFormat("en", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(value));
+  };
+
   useEffect(() => {
     return () => {
       if (preview) {
@@ -48,14 +60,16 @@ function UserDashboard() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const [profileRes, plansRes] = await Promise.all([
+        const [profileRes, plansRes, consultationsRes] = await Promise.all([
           api.get("me/"),
           api.get("plans/"),
+          api.get("consultations/"),
         ]);
 
         localStorage.setItem("userRole", profileRes.data.role || "client");
         setProfile(profileRes.data);
         setPlans(plansRes.data);
+        setConsultations(consultationsRes.data);
       } catch (err) {
         console.error("Failed to fetch profile/plans", err);
         showToast("Failed to load dashboard data.");
@@ -539,6 +553,43 @@ function UserDashboard() {
     </div>
   );
 
+  const renderConsultations = () => (
+    <div className="profile-panel">
+      <div className="section-heading">
+        <h3>My Consultations</h3>
+        <p>Zoom links created by your nutritionist will appear here.</p>
+      </div>
+
+      {consultations.length === 0 ? (
+        <p className="empty-state">
+          No consultation has been scheduled yet. After your nutritionist creates one,
+          the Zoom link will show here.
+        </p>
+      ) : (
+        <div className="consultation-list">
+          {consultations.map((consultation) => (
+            <div key={consultation.id} className="consultation-card">
+              <div>
+                <h5>{consultation.topic || "Nutrition consultation"}</h5>
+                <p>{consultation.nutritionist_name || consultation.nutritionist_email || "Nutritionist"}</p>
+                <span>{formatDateTime(consultation.scheduled_at)}</span>
+              </div>
+              <div className="consultation-actions">
+                <strong>{consultation.status}</strong>
+                {consultation.zoom_join_url && consultation.status === "scheduled" ? (
+                  <a href={consultation.zoom_join_url} target="_blank" rel="noreferrer">
+                    Join Zoom
+                  </a>
+                ) : (
+                  <span>{consultation.status === "completed" ? "Completed" : "Link pending"}</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
   const renderProfile = () => (
     <div className="profile-panel">
       <div className="section-heading">
@@ -624,6 +675,8 @@ function UserDashboard() {
         return renderSubscription();
       case "nutrition-plan":
         return renderNutritionPlan();
+      case "consultations":
+        return renderConsultations();
       case "upload":
         return renderUpload();
       case "profile":
@@ -660,6 +713,12 @@ function UserDashboard() {
             onClick={() => setActiveSection("upload")}
           >
             AI Tracking
+          </li>
+          <li
+            className={activeSection === "consultations" ? "active" : ""}
+            onClick={() => setActiveSection("consultations")}
+          >
+            Consultations
           </li>
           <li
             className={activeSection === "profile" ? "active" : ""}
@@ -706,3 +765,6 @@ function UserDashboard() {
 }
 
 export default UserDashboard;
+
+
+

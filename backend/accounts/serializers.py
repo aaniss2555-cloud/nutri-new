@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import CustomUser, Plan, SubscriptionPlan, UserSubscription
+from .models import BlogPost, Consultation, CustomUser, Inquiry, Plan, SubscriptionPlan, UserSubscription
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -122,6 +122,8 @@ class ProfileSerializer(serializers.ModelSerializer):
             "last_name",
             "phone",
             "role",
+            "is_staff",
+            "is_superuser",
             "age",
             "weight",
             "allergies",
@@ -129,7 +131,7 @@ class ProfileSerializer(serializers.ModelSerializer):
             "active_subscription",
             "latest_nutrition_plan",
         ]
-        read_only_fields = ["id", "email", "role", "active_subscription", "latest_nutrition_plan"]
+        read_only_fields = ["id", "email", "role", "is_staff", "is_superuser", "active_subscription", "latest_nutrition_plan"]
 
     def get_active_subscription(self, obj):
         subscription = obj.subscriptions.filter(status="active").select_related(
@@ -196,3 +198,198 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
         super().__init__(*args, **kwargs)
         self.fields.pop("username", None)
         self.fields["email"] = serializers.EmailField()
+
+class ConsultationSerializer(serializers.ModelSerializer):
+    client_email = serializers.EmailField(source="client.email", read_only=True)
+    client_name = serializers.SerializerMethodField()
+    nutritionist_email = serializers.EmailField(source="nutritionist.email", read_only=True)
+    nutritionist_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Consultation
+        fields = [
+            "id",
+            "client",
+            "client_email",
+            "client_name",
+            "nutritionist",
+            "nutritionist_email",
+            "nutritionist_name",
+            "scheduled_at",
+            "duration_minutes",
+            "status",
+            "topic",
+            "notes",
+            "zoom_meeting_id",
+            "zoom_join_url",
+            "zoom_start_url",
+            "zoom_password",
+            "created_at",
+        ]
+        read_only_fields = [
+            "nutritionist",
+            "status",
+            "zoom_meeting_id",
+            "zoom_join_url",
+            "zoom_start_url",
+            "zoom_password",
+            "created_at",
+        ]
+
+    def validate_client(self, value):
+        if value.role != "client":
+            raise serializers.ValidationError("Consultations can only be assigned to client accounts.")
+        return value
+
+    def validate_duration_minutes(self, value):
+        if value not in [30, 45, 60]:
+            raise serializers.ValidationError("Duration must be 30, 45, or 60 minutes.")
+        return value
+
+    def get_client_name(self, obj):
+        full_name = f"{obj.client.first_name} {obj.client.last_name}".strip()
+        return full_name or obj.client.email
+
+    def get_nutritionist_name(self, obj):
+        if not obj.nutritionist:
+            return None
+        full_name = f"{obj.nutritionist.first_name} {obj.nutritionist.last_name}".strip()
+        return full_name or obj.nutritionist.email
+
+
+
+
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomUser
+        fields = [
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "full_name",
+            "role",
+            "is_active",
+            "is_staff",
+            "is_superuser",
+            "date_joined",
+        ]
+        read_only_fields = ["id", "email", "is_superuser", "date_joined"]
+
+    def get_full_name(self, obj):
+        full_name = f"{obj.first_name} {obj.last_name}".strip()
+        return full_name or obj.email
+
+    def validate_role(self, value):
+        if value not in ["client", "nutritionist"]:
+            raise serializers.ValidationError("Role must be client or nutritionist.")
+        return value
+
+class InquirySerializer(serializers.ModelSerializer):
+    user_email = serializers.EmailField(source="user.email", read_only=True)
+
+    class Meta:
+        model = Inquiry
+        fields = [
+            "id",
+            "user",
+            "user_email",
+            "full_name",
+            "email",
+            "subject",
+            "message",
+            "status",
+            "admin_note",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["user", "user_email", "status", "admin_note", "created_at", "updated_at"]
+
+
+class AdminInquirySerializer(serializers.ModelSerializer):
+    user_email = serializers.EmailField(source="user.email", read_only=True)
+
+    class Meta:
+        model = Inquiry
+        fields = [
+            "id",
+            "user",
+            "user_email",
+            "full_name",
+            "email",
+            "subject",
+            "message",
+            "status",
+            "admin_note",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "user", "user_email", "full_name", "email", "subject", "message", "created_at", "updated_at"]
+
+class AdminUserSubscriptionSerializer(serializers.ModelSerializer):
+    client_email = serializers.EmailField(source="user.email", read_only=True)
+    client_name = serializers.SerializerMethodField()
+    subscription_plan_name = serializers.CharField(source="subscription_plan.name", read_only=True)
+
+    class Meta:
+        model = UserSubscription
+        fields = [
+            "id",
+            "user",
+            "client_email",
+            "client_name",
+            "subscription_plan",
+            "subscription_plan_name",
+            "status",
+            "payment_status",
+            "start_date",
+            "end_date",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["id", "user", "client_email", "client_name", "subscription_plan", "subscription_plan_name", "start_date", "end_date", "created_at"]
+
+    def get_client_name(self, obj):
+        full_name = f"{obj.user.first_name} {obj.user.last_name}".strip()
+        return full_name or obj.user.email
+
+
+class BlogPostSerializer(serializers.ModelSerializer):
+    author_name = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BlogPost
+        fields = [
+            "id",
+            "title",
+            "category",
+            "summary",
+            "image",
+            "image_url",
+            "content",
+            "author",
+            "author_name",
+            "is_published",
+            "published_at",
+            "created_at",
+        ]
+        read_only_fields = ["author", "author_name", "image_url", "created_at"]
+
+    def get_image_url(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(obj.image.url)
+        return obj.image.url
+
+    def get_author_name(self, obj):
+        if not obj.author:
+            return "Administrator"
+        full_name = f"{obj.author.first_name} {obj.author.last_name}".strip()
+        return full_name or obj.author.email
+

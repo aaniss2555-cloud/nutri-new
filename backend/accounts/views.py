@@ -5,19 +5,29 @@ from requests import RequestException
 
 from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
+from django.db import models
 from django.core.mail import send_mail
 from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from rest_framework import generics, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import CustomUser, Plan, SubscriptionPlan, UserSubscription
+from .models import BlogPost, Consultation, CustomUser, Inquiry, Plan, SubscriptionPlan, UserSubscription
+from .zoom_service import create_zoom_meeting
 from .serializers import (
+    AdminInquirySerializer,
+    AdminUserSubscriptionSerializer,
+    AdminUserSerializer,
+    BlogPostSerializer,
     ClientSerializer,
+    ConsultationSerializer,
+    InquirySerializer,
     EmailTokenObtainPairSerializer,
     PlanSerializer,
     ProfileSerializer,
@@ -26,6 +36,281 @@ from .serializers import (
     UserSubscriptionSerializer,
 )
 
+
+
+def is_admin_user(user):
+    return bool(user and user.is_authenticated and (user.is_staff or user.is_superuser))
+
+
+
+def is_content_author(user):
+    return bool(
+        user
+        and user.is_authenticated
+        and (user.is_staff or user.is_superuser or user.role == "nutritionist")
+    )
+
+class AdminSummaryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not is_admin_user(request.user):
+            return Response(
+                {"detail": "Only administrators can view this dashboard."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        users = CustomUser.objects.order_by("-date_joined")
+        clients = users.filter(role="client")
+        nutritionists = users.filter(role="nutritionist")
+        subscriptions = UserSubscription.objects.select_related(
+            "user",
+            "subscription_plan",
+            "nutritionist",
+        ).order_by("-created_at")
+        consultations = Consultation.objects.select_related(
+            "client",
+            "nutritionist",
+        ).order_by("-scheduled_at")
+        nutrition_plans = Plan.objects.select_related(
+            "assigned_to",
+            "created_by",
+        ).order_by("-created_at")
+        inquiries = Inquiry.objects.select_related("user").order_by("-created_at")
+        blog_posts = BlogPost.objects.select_related("author").order_by("-published_at")
+
+        recent_users = [
+            {
+                "id": user.id,
+                "email": user.email,
+                "full_name": f"{user.first_name} {user.last_name}".strip() or user.email,
+                "role": "admin" if user.is_staff or user.is_superuser else user.role,
+                "is_staff": user.is_staff,
+                "date_joined": user.date_joined,
+            }
+            for user in users[:8]
+        ]
+
+        recent_subscriptions = [
+            {
+                "id": subscription.id,
+                "client": subscription.user.email,
+                "plan": subscription.subscription_plan.name,
+                "status": subscription.status,
+                "payment_status": subscription.payment_status,
+                "start_date": subscription.start_date,
+                "end_date": subscription.end_date,
+            }
+            for subscription in subscriptions[:8]
+        ]
+
+        return Response(
+            {
+                "stats": {
+                    "total_users": users.count(),
+                    "clients": clients.count(),
+                    "nutritionists": nutritionists.count(),
+                    "staff_admins": users.filter(is_staff=True).count(),
+                    "active_subscriptions": subscriptions.filter(status="active").count(),
+                    "subscription_plans": SubscriptionPlan.objects.count(),
+                    "nutrition_plans": nutrition_plans.count(),
+                    "scheduled_consultations": consultations.filter(status="scheduled").count(),
+                    "completed_consultations": consultations.filter(status="completed").count(),
+                    "open_inquiries": inquiries.filter(status="open").count(),
+                    "published_posts": blog_posts.filter(is_published=True).count(),
+                },
+                "recent_users": recent_users,
+                "subscription_plans": SubscriptionPlanSerializer(
+                    SubscriptionPlan.objects.order_by("sort_order", "price", "name"),
+                    many=True,
+                ).data,
+                "recent_subscriptions": recent_subscriptions,
+                "recent_consultations": ConsultationSerializer(consultations[:8], many=True).data,
+                "recent_nutrition_plans": PlanSerializer(nutrition_plans[:8], many=True).data,
+                "recent_inquiries": AdminInquirySerializer(inquiries[:8], many=True).data,
+                "recent_blog_posts": BlogPostSerializer(blog_posts[:8], many=True).data,
+                "django_admin_url": "http://localhost:8000/admin/",
+            }
+        )
+
+
+
+class InquiryCreateView(generics.CreateAPIView):
+    serializer_class = InquirySerializer
+    permission_classes = [AllowAny]
+
+    def perform_create(self, serializer):
+        user = self.request.user if self.request.user.is_authenticated else None
+        serializer.save(user=user)
+
+
+class AdminInquiryViewSet(viewsets.ModelViewSet):
+    serializer_class = AdminInquirySerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "patch", "head", "options"]
+
+    def get_queryset(self):
+        if not is_admin_user(self.request.user):
+            return Inquiry.objects.none()
+        return Inquiry.objects.select_related("user").order_by("-created_at")
+
+    def partial_update(self, request, *args, **kwargs):
+        if not is_admin_user(request.user):
+            return Response(
+                {"detail": "Only administrators can manage inquiries."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        inquiry = self.get_object()
+        inquiry.status = request.data.get("status", inquiry.status)
+        inquiry.admin_note = request.data.get("admin_note", inquiry.admin_note)
+        inquiry.updated_at = timezone.now()
+        inquiry.save(update_fields=["status", "admin_note", "updated_at"])
+        return Response(self.get_serializer(inquiry).data)
+
+class AdminUserViewSet(viewsets.ModelViewSet):
+    serializer_class = AdminUserSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "patch", "head", "options"]
+
+    def get_queryset(self):
+        if not is_admin_user(self.request.user):
+            return CustomUser.objects.none()
+        return CustomUser.objects.order_by("-date_joined")
+
+    def partial_update(self, request, *args, **kwargs):
+        if not is_admin_user(request.user):
+            return Response(
+                {"detail": "Only administrators can manage users."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        user = self.get_object()
+        if user == request.user and request.data.get("is_active") is False:
+            return Response(
+                {"detail": "You cannot deactivate your own admin account."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return super().partial_update(request, *args, **kwargs)
+
+
+
+class AdminUserSubscriptionViewSet(viewsets.ModelViewSet):
+    serializer_class = AdminUserSubscriptionSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "patch", "head", "options"]
+
+    def get_queryset(self):
+        if not is_admin_user(self.request.user):
+            return UserSubscription.objects.none()
+        return UserSubscription.objects.select_related("user", "subscription_plan", "nutritionist").order_by("-created_at")
+
+    def partial_update(self, request, *args, **kwargs):
+        if not is_admin_user(request.user):
+            return Response(
+                {"detail": "Only administrators can manage subscriptions."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        subscription = self.get_object()
+        subscription.status = request.data.get("status", subscription.status)
+        subscription.payment_status = request.data.get("payment_status", subscription.payment_status)
+        subscription.notes = request.data.get("notes", subscription.notes)
+        subscription.updated_at = timezone.now()
+        subscription.save(update_fields=["status", "payment_status", "notes", "updated_at"])
+        return Response(self.get_serializer(subscription).data)
+
+
+class BlogPostViewSet(viewsets.ModelViewSet):
+    serializer_class = BlogPostSerializer
+    permission_classes = [AllowAny]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_queryset(self):
+        queryset = BlogPost.objects.select_related("author").order_by("-published_at", "-id")
+        if self.request.user.is_authenticated and is_admin_user(self.request.user):
+            return queryset
+        if self.request.user.is_authenticated and self.request.user.role == "nutritionist":
+            return queryset.filter(models.Q(is_published=True) | models.Q(author=self.request.user))
+        return queryset.filter(is_published=True)
+
+    def create(self, request, *args, **kwargs):
+        if not is_content_author(request.user):
+            return Response(
+                {"detail": "Only administrators and nutritionists can create blog posts."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().create(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user, updated_at=timezone.now())
+
+    def update(self, request, *args, **kwargs):
+        if not is_content_author(request.user):
+            return Response(
+                {"detail": "Only administrators and nutritionists can update blog posts."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        if not is_content_author(request.user):
+            return Response(
+                {"detail": "Only administrators and nutritionists can update blog posts."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().partial_update(request, *args, **kwargs)
+
+    def perform_update(self, serializer):
+        serializer.save(updated_at=timezone.now())
+
+    def destroy(self, request, *args, **kwargs):
+        if not is_content_author(request.user):
+            return Response(
+                {"detail": "Only administrators and nutritionists can delete blog posts."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
+
+class AdminSubscriptionPlanViewSet(viewsets.ModelViewSet):
+    serializer_class = SubscriptionPlanSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if not is_admin_user(self.request.user):
+            return SubscriptionPlan.objects.none()
+        return SubscriptionPlan.objects.order_by("sort_order", "price", "name")
+
+    def create(self, request, *args, **kwargs):
+        if not is_admin_user(request.user):
+            return Response(
+                {"detail": "Only administrators can create subscription plans."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        if not is_admin_user(request.user):
+            return Response(
+                {"detail": "Only administrators can update subscription plans."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        if not is_admin_user(request.user):
+            return Response(
+                {"detail": "Only administrators can update subscription plans."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if not is_admin_user(request.user):
+            return Response(
+                {"detail": "Only administrators can delete subscription plans."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
 
 class RegisterView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
@@ -308,3 +593,101 @@ class PlanViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
         return super().destroy(request, *args, **kwargs)
+
+class ConsultationViewSet(viewsets.ModelViewSet):
+    serializer_class = ConsultationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = Consultation.objects.select_related("client", "nutritionist").all()
+        if self.request.user.role == "client":
+            return queryset.filter(client=self.request.user)
+        if self.request.user.role == "nutritionist":
+            return queryset.filter(nutritionist=self.request.user)
+        if is_admin_user(self.request.user):
+            return queryset
+        return queryset.none()
+
+    def create(self, request, *args, **kwargs):
+        if request.user.role != "nutritionist":
+            return Response(
+                {"detail": "Only nutritionists can schedule Zoom consultations."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        consultation = serializer.save(nutritionist=request.user)
+
+        try:
+            zoom_meeting = create_zoom_meeting(consultation=consultation)
+        except Exception:
+            consultation.delete()
+            raise
+
+        consultation.zoom_meeting_id = str(zoom_meeting.get("id", ""))
+        consultation.zoom_join_url = zoom_meeting.get("join_url", "")
+        consultation.zoom_start_url = zoom_meeting.get("start_url", "")
+        consultation.zoom_password = zoom_meeting.get("password", "")
+        consultation.updated_at = timezone.now()
+        consultation.save(update_fields=[
+            "zoom_meeting_id",
+            "zoom_join_url",
+            "zoom_start_url",
+            "zoom_password",
+            "updated_at",
+        ])
+
+        return Response(
+            self.get_serializer(consultation).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    def update(self, request, *args, **kwargs):
+        return Response(
+            {"detail": "Consultations cannot be edited from this endpoint yet."},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
+
+    def partial_update(self, request, *args, **kwargs):
+        return Response(
+            {"detail": "Consultations cannot be edited from this endpoint yet."},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
+
+    @action(detail=True, methods=["post"])
+    def complete(self, request, pk=None):
+        if request.user.role != "nutritionist":
+            return Response(
+                {"detail": "Only nutritionists can complete consultations."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        consultation = self.get_object()
+        consultation.status = "completed"
+        consultation.updated_at = timezone.now()
+        consultation.save(update_fields=["status", "updated_at"])
+        return Response(self.get_serializer(consultation).data)
+
+    def destroy(self, request, *args, **kwargs):
+        if request.user.role != "nutritionist":
+            return Response(
+                {"detail": "Only nutritionists can cancel consultations."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        consultation = self.get_object()
+        consultation.status = "cancelled"
+        consultation.updated_at = timezone.now()
+        consultation.save(update_fields=["status", "updated_at"])
+        return Response(self.get_serializer(consultation).data)
+
+
+
+
+
+
+
+
+
+
+

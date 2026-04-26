@@ -63,7 +63,3 @@ meal image
   "total_estimated_calories_kcal": 234
 }
 ```
-
-## Notes
-
-The current predictor is deliberately marked as `demo`. It proves that the website, Django backend, and FastAPI service communicate correctly. It is not the final AI model.

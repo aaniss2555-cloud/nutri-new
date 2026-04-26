@@ -9,6 +9,8 @@ function NutriDashboard() {
   const [profile, setProfile] = useState({});
   const [clients, setClients] = useState([]);
   const [plans, setPlans] = useState([]);
+  const [consultations, setConsultations] = useState([]);
+  const [blogPosts, setBlogPosts] = useState([]);
   const [selectedClientId, setSelectedClientId] = useState(null);
   const [detailsClientId, setDetailsClientId] = useState(null);
   const [planForm, setPlanForm] = useState({
@@ -18,12 +20,40 @@ function NutriDashboard() {
     duration_weeks: "",
     follow_up_notes: "",
   });
+  const [consultationForm, setConsultationForm] = useState({
+    client: "",
+    scheduled_at: "",
+    duration_minutes: "30",
+    topic: "Nutrition consultation",
+    notes: "",
+  });
+  const [blogDraft, setBlogDraft] = useState({
+    title: "",
+    category: "nutrition",
+    summary: "",
+    content: "",
+    image: null,
+    is_published: true,
+  });
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
   const [savingPlan, setSavingPlan] = useState(false);
+  const [savingConsultation, setSavingConsultation] = useState(false);
+  const [savingBlogPost, setSavingBlogPost] = useState(false);
   const navigate = useNavigate();
 
   const toggleSidebar = () => setSidebarOpen((prev) => !prev);
+
+  const formatDateTime = (value) => {
+    if (!value) {
+      return "Not scheduled";
+    }
+
+    return new Intl.DateTimeFormat("en", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(value));
+  };
 
   const showToast = (message) => {
     setToast(message);
@@ -35,19 +65,24 @@ function NutriDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const [profileRes, clientsRes, plansRes] = await Promise.all([
+      const [profileRes, clientsRes, plansRes, consultationsRes, blogRes] = await Promise.all([
         api.get("me/"),
         api.get("clients/"),
         api.get("plans/"),
+        api.get("consultations/"),
+        api.get("blog-posts/"),
       ]);
 
       localStorage.setItem("userRole", profileRes.data.role || "nutritionist");
       setProfile(profileRes.data);
       setClients(clientsRes.data);
       setPlans(plansRes.data);
+      setConsultations(consultationsRes.data);
+      setBlogPosts(blogRes.data);
 
       if (!selectedClientId && clientsRes.data.length > 0) {
         setSelectedClientId(clientsRes.data[0].id);
+        setConsultationForm((prev) => ({ ...prev, client: String(clientsRes.data[0].id) }));
       }
     } catch (error) {
       console.error("Failed to load nutritionist dashboard", error);
@@ -82,6 +117,9 @@ function NutriDashboard() {
   const clientsWithPlans = clients.filter((client) => client.latest_nutrition_plan).length;
   const activeSubscriptions = clients.filter(
     (client) => client.active_subscription?.status === "active",
+  ).length;
+  const upcomingConsultations = consultations.filter(
+    (consultation) => consultation.status === "scheduled",
   ).length;
 
   const resetPlanForm = () => {
@@ -181,6 +219,115 @@ function NutriDashboard() {
     }
   };
 
+  const resetConsultationForm = () => {
+    setConsultationForm({
+      client: selectedClientId ? String(selectedClientId) : "",
+      scheduled_at: "",
+      duration_minutes: "30",
+      topic: "Nutrition consultation",
+      notes: "",
+    });
+  };
+
+  const handleScheduleConsultation = async (event) => {
+    event.preventDefault();
+
+    if (!consultationForm.client || !consultationForm.scheduled_at) {
+      showToast("Choose a client and consultation date first.");
+      return;
+    }
+
+    setSavingConsultation(true);
+
+    try {
+      const response = await api.post("consultations/", {
+        client: Number(consultationForm.client),
+        scheduled_at: new Date(consultationForm.scheduled_at).toISOString(),
+        duration_minutes: Number(consultationForm.duration_minutes),
+        topic: consultationForm.topic.trim(),
+        notes: consultationForm.notes.trim(),
+      });
+
+      setConsultations((prev) => [response.data, ...prev]);
+      resetConsultationForm();
+      showToast("Zoom consultation created.");
+    } catch (error) {
+      console.error("Failed to create consultation", error);
+      const zoomError = error.response?.data?.zoom;
+      showToast(
+        typeof zoomError === "string"
+          ? zoomError
+          : zoomError?.message ||
+              zoomError?.reason ||
+              error.response?.data?.detail ||
+              "Failed to create Zoom consultation.",
+      );
+    } finally {
+      setSavingConsultation(false);
+    }
+  };
+
+  const handleCompleteConsultation = async (consultationId) => {
+    try {
+      const response = await api.post(`consultations/${consultationId}/complete/`);
+      setConsultations((prev) =>
+        prev.map((consultation) =>
+          consultation.id === consultationId ? response.data : consultation,
+        ),
+      );
+      showToast("Consultation marked as completed.");
+    } catch (error) {
+      console.error("Failed to complete consultation", error);
+      showToast(error.response?.data?.detail || "Failed to complete consultation.");
+    }
+  };
+
+  const resetBlogDraft = () => {
+    setBlogDraft({
+      title: "",
+      category: "nutrition",
+      summary: "",
+      content: "",
+      image: null,
+      is_published: true,
+    });
+  };
+
+  const handleCreateBlogPost = async (event) => {
+    event.preventDefault();
+
+    if (!blogDraft.title.trim() || !blogDraft.content.trim()) {
+      showToast("Blog title and content are required.");
+      return;
+    }
+
+    setSavingBlogPost(true);
+
+    try {
+      const payload = new FormData();
+      payload.append("title", blogDraft.title.trim());
+      payload.append("category", blogDraft.category);
+      payload.append("summary", blogDraft.summary.trim());
+      payload.append("content", blogDraft.content.trim());
+      payload.append("is_published", blogDraft.is_published ? "true" : "false");
+      payload.append("published_at", new Date().toISOString());
+      if (blogDraft.image) {
+        payload.append("image", blogDraft.image);
+      }
+
+      const response = await api.post("blog-posts/", payload, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setBlogPosts((prev) => [response.data, ...prev]);
+      resetBlogDraft();
+      showToast("Blog post published.");
+    } catch (error) {
+      console.error("Failed to create blog post", error);
+      showToast(error.response?.data?.detail || "Failed to save blog post.");
+    } finally {
+      setSavingBlogPost(false);
+    }
+  };
   const handleLogout = () => {
     logout();
     navigate("/login");
@@ -207,8 +354,8 @@ function NutriDashboard() {
             <p>{activeSubscriptions}</p>
           </div>
           <div className="stat-card">
-            <h4>Clients With Plans</h4>
-            <p>{clientsWithPlans}</p>
+            <h4>Upcoming Consultations</h4>
+            <p>{upcomingConsultations}</p>
           </div>
         </div>
 
@@ -454,6 +601,193 @@ function NutriDashboard() {
     );
   };
 
+  const renderConsultations = () => (
+    <div className="nutri-dashboard">
+      <div className="plans-layout">
+        <div className="clients-list-panel">
+          <div className="section-heading">
+            <h3>Create Zoom Consultation</h3>
+            <p>Schedule the meeting here. Zoom creates the link automatically.</p>
+          </div>
+
+          <form className="plan-editor" onSubmit={handleScheduleConsultation}>
+            <select
+              value={consultationForm.client}
+              onChange={(event) =>
+                setConsultationForm((prev) => ({ ...prev, client: event.target.value }))
+              }
+            >
+              <option value="">Select client</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.full_name}
+                </option>
+              ))}
+            </select>
+            <input
+              type="datetime-local"
+              value={consultationForm.scheduled_at}
+              onChange={(event) =>
+                setConsultationForm((prev) => ({ ...prev, scheduled_at: event.target.value }))
+              }
+            />
+            <select
+              value={consultationForm.duration_minutes}
+              onChange={(event) =>
+                setConsultationForm((prev) => ({ ...prev, duration_minutes: event.target.value }))
+              }
+            >
+              <option value="30">30 minutes</option>
+              <option value="45">45 minutes</option>
+              <option value="60">60 minutes</option>
+            </select>
+            <input
+              type="text"
+              placeholder="Meeting topic"
+              value={consultationForm.topic}
+              onChange={(event) =>
+                setConsultationForm((prev) => ({ ...prev, topic: event.target.value }))
+              }
+            />
+            <textarea
+              rows="3"
+              placeholder="Private notes or agenda"
+              value={consultationForm.notes}
+              onChange={(event) =>
+                setConsultationForm((prev) => ({ ...prev, notes: event.target.value }))
+              }
+            />
+            <button className="assign-btn" type="submit" disabled={savingConsultation}>
+              {savingConsultation ? "Creating Zoom..." : "Create Zoom Meeting"}
+            </button>
+          </form>
+        </div>
+
+        <div className="user-panel">
+          <div className="section-heading">
+            <h3>Scheduled Consultations</h3>
+            <p>These are the Zoom consultations created from your dashboard.</p>
+          </div>
+
+          {consultations.length === 0 ? (
+            <p className="empty-state">No consultations scheduled yet.</p>
+          ) : (
+            <div className="consultation-list">
+              {consultations.map((consultation) => (
+                <div key={consultation.id} className="consultation-card">
+                  <div>
+                    <h5>{consultation.topic || "Nutrition consultation"}</h5>
+                    <p>{consultation.client_name || consultation.client_email}</p>
+                    <span>{formatDateTime(consultation.scheduled_at)}</span>
+                  </div>
+                  <div className="consultation-actions">
+                    <strong>{consultation.status}</strong>
+                    {consultation.zoom_join_url && consultation.status === "scheduled" && (
+                      <a href={consultation.zoom_join_url} target="_blank" rel="noreferrer">
+                        Open Zoom
+                      </a>
+                    )}
+                    {consultation.status === "scheduled" && (
+                      <button
+                        type="button"
+                        className="complete-btn"
+                        onClick={() => handleCompleteConsultation(consultation.id)}
+                      >
+                        Mark Completed
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderContentManagement = () => (
+    <div className="nutri-dashboard">
+      <div className="plans-layout">
+        <div className="clients-list-panel">
+          <div className="section-heading">
+            <h3>Create Blog / Nutrition News</h3>
+            <p>Share recipes, nutrition education, lifestyle advice, or announcements.</p>
+          </div>
+
+          <form className="plan-editor" onSubmit={handleCreateBlogPost}>
+            <input
+              type="text"
+              placeholder="Post title"
+              value={blogDraft.title}
+              onChange={(event) => setBlogDraft((prev) => ({ ...prev, title: event.target.value }))}
+            />
+            <select
+              value={blogDraft.category}
+              onChange={(event) => setBlogDraft((prev) => ({ ...prev, category: event.target.value }))}
+            >
+              <option value="nutrition">Nutrition</option>
+              <option value="recipe">Recipe</option>
+              <option value="lifestyle">Lifestyle</option>
+              <option value="announcement">Announcement</option>
+            </select>
+            <textarea
+              rows="2"
+              placeholder="Short summary"
+              value={blogDraft.summary}
+              onChange={(event) => setBlogDraft((prev) => ({ ...prev, summary: event.target.value }))}
+            />
+            <textarea
+              rows="5"
+              placeholder="Post content"
+              value={blogDraft.content}
+              onChange={(event) => setBlogDraft((prev) => ({ ...prev, content: event.target.value }))}
+            />
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) => setBlogDraft((prev) => ({ ...prev, image: event.target.files?.[0] || null }))}
+            />
+            <label className="admin-check">
+              <input
+                type="checkbox"
+                checked={blogDraft.is_published}
+                onChange={(event) => setBlogDraft((prev) => ({ ...prev, is_published: event.target.checked }))}
+              />
+              Publish immediately
+            </label>
+            <button className="assign-btn" type="submit" disabled={savingBlogPost}>
+              {savingBlogPost ? "Saving..." : "Save Blog Post"}
+            </button>
+          </form>
+        </div>
+
+        <div className="user-panel">
+          <div className="section-heading">
+            <h3>Blog / Nutrition News</h3>
+            <p>Your posts and published platform content appear here.</p>
+          </div>
+
+          {blogPosts.length === 0 ? (
+            <p className="empty-state">No blog posts yet.</p>
+          ) : (
+            <div className="consultation-list">
+              {blogPosts.map((post) => (
+                <div key={post.id} className="consultation-card">
+                  <div>
+                    {post.image_url && <img src={post.image_url} alt={post.title} className="admin-post-thumb" />}
+                    <h5>{post.title}</h5>
+                    <p>{post.summary || post.content.slice(0, 140)}</p>
+                    <span>{post.category} - {post.is_published ? "Published" : "Draft"}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
   const renderProfile = () => (
     <div className="profile-panel">
       <div className="section-heading">
@@ -492,6 +826,10 @@ function NutriDashboard() {
         return renderClients();
       case "plans":
         return renderPlans();
+      case "consultations":
+        return renderConsultations();
+      case "content":
+        return renderContentManagement();
       case "profile":
         return renderProfile();
       default:
@@ -521,6 +859,18 @@ function NutriDashboard() {
               onClick={() => setActiveSection("plans")}
             >
               Nutrition Plans
+            </li>
+            <li
+              className={activeSection === "consultations" ? "active" : ""}
+              onClick={() => setActiveSection("consultations")}
+            >
+              Consultations
+            </li>
+            <li
+              className={activeSection === "content" ? "active" : ""}
+              onClick={() => setActiveSection("content")}
+            >
+              Content
             </li>
             <li
               className={activeSection === "profile" ? "active" : ""}
@@ -623,3 +973,8 @@ function NutriDashboard() {
 }
 
 export default NutriDashboard;
+
+
+
+
+

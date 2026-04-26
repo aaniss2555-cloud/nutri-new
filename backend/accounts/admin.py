@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
-from .models import CustomUser, Plan, SubscriptionPlan, UserSubscription
+from .models import BlogPost, Consultation, CustomUser, Inquiry, Plan, SubscriptionPlan, UserSubscription
 
 
 @admin.register(CustomUser)
@@ -96,3 +96,29 @@ class PlanAdmin(admin.ModelAdmin):
     list_display = ("title", "assigned_to", "created_by", "is_active", "created_at")
     list_filter = ("is_active",)
     search_fields = ("title", "assigned_to__email", "created_by__email")
+
+@admin.register(Consultation)
+class ConsultationAdmin(admin.ModelAdmin):
+    list_display = (
+        "client",
+        "nutritionist",
+        "scheduled_at",
+        "duration_minutes",
+        "status",
+        "zoom_meeting_id",
+    )
+    list_filter = ("status", "scheduled_at")
+    search_fields = ("client__email", "nutritionist__email", "topic", "zoom_meeting_id")
+
+
+@admin.register(Inquiry)
+class InquiryAdmin(admin.ModelAdmin):
+    list_display = ("subject", "email", "status", "created_at")
+    list_filter = ("status", "created_at")
+    search_fields = ("subject", "email", "full_name", "message")
+
+@admin.register(BlogPost)
+class BlogPostAdmin(admin.ModelAdmin):
+    list_display = ("title", "category", "is_published", "published_at")
+    list_filter = ("category", "is_published", "published_at")
+    search_fields = ("title", "summary", "content")

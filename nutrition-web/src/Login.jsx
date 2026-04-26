@@ -17,9 +17,11 @@ function Login() {
       const profileRes = await getProfile();
       const profile = profileRes.data;
 
-      localStorage.setItem("userRole", profile.role);
+      localStorage.setItem("userRole", profile.is_staff || profile.is_superuser ? "admin" : profile.role);
 
-      if (profile.role === "client") {
+      if (profile.is_staff || profile.is_superuser) {
+        navigate("/admin");
+      } else if (profile.role === "client") {
         navigate("/user-dashboard");
       } else if (profile.role === "nutritionist") {
         navigate("/nutri-dashboard");
@@ -75,3 +77,5 @@ function Login() {
 }
 
 export default Login;
+
+

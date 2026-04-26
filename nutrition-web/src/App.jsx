@@ -7,8 +7,12 @@ import Login from "./Login";
 import UserSignup from "./UserSignup";
 import NutritionistSignup from "./NutritionistSignup";
 import SubscriptionPlans from "./SubscriptionPlans";
+import Contact from "./Contact";
+import Blog from "./Blog";
+import BlogDetail from "./BlogDetail";
 import UserDashboard from "./UserDashboard";
 import NutriDashboard from "./NutriDashboard";
+import AdminDashboard from "./AdminDashboard";
 import ForgotPassword from "./ForgotPassword";
 import ResetPasswordConfirm from "./ResetPasswordConfirm";
 import ProtectedRoute from "./ProtectedRoute";
@@ -27,6 +31,9 @@ function App() {
               element={<NutritionistSignup />}
             />
             <Route path="/subscriptions" element={<SubscriptionPlans />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/blogs" element={<Blog />} />
+            <Route path="/blogs/:id" element={<BlogDetail />} />
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route
@@ -38,6 +45,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRole="client">
                   <UserDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute allowedRole="admin">
+                  <AdminDashboard />
                 </ProtectedRoute>
               }
             />
@@ -58,3 +73,9 @@ function App() {
 }
 
 export default App;
+
+
+
+
+
+

@@ -9,7 +9,11 @@ function Header() {
   const userRole = localStorage.getItem("userRole");
 
   const dashboardPath =
-    userRole === "nutritionist" ? "/nutri-dashboard" : "/user-dashboard";
+    userRole === "admin"
+      ? "/admin"
+      : userRole === "nutritionist"
+        ? "/nutri-dashboard"
+        : "/user-dashboard";
 
   const goToHomeSection = (sectionId) => {
     if (location.pathname === "/") {
@@ -41,6 +45,12 @@ function Header() {
           </li>
           <li>
             <Link to="/subscriptions">Subscriptions</Link>
+          </li>
+          <li>
+            <Link to="/blogs">Blogs</Link>
+          </li>
+          <li>
+            <Link to="/contact">Contact</Link>
           </li>
           <li>
             <button
@@ -90,3 +100,7 @@ function Header() {
 }
 
 export default Header;
+
+
+
+

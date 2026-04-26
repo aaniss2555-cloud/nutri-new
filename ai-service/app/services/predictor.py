@@ -11,9 +11,9 @@ from app.schemas import BoundingBox, FoodDetection, PredictionResponse
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 REFERENCE_PATH = PROJECT_ROOT / "app" / "data" / "nutrition_reference.json"
-DEFAULT_MODEL_PATH = Path(r"C:\Users\user\Downloads\foodinsseg_yolov8n_50epoch_best.pt")
+DEFAULT_MODEL_PATH = Path(r"C:\Users\user\Downloads\foodinsseg_yolov8n_50plus20epoch_best.pt")
 LOCAL_ULTRALYTICS_CONFIG = PROJECT_ROOT / ".ultralytics"
-CONFIDENCE_THRESHOLD = 0.5
+CONFIDENCE_THRESHOLD = 0.35
 MAX_DETECTIONS = 3
 os.environ.setdefault("YOLO_CONFIG_DIR", str(LOCAL_ULTRALYTICS_CONFIG))
 os.environ.setdefault("ULTRALYTICS_CONFIG_DIR", str(LOCAL_ULTRALYTICS_CONFIG))
@@ -176,9 +176,11 @@ def predict_food_image(
         image_width=width,
         image_height=height,
         model_name=get_model_path().stem,
-        model_version="50epoch-yolov8n",
+        model_version="50plus20epoch-yolov8n",
         dataset_note="FoodInsSeg-trained YOLO segmentation model. Calorie estimation still uses a basic local nutrition reference.",
         detections=detections,
         total_estimated_calories_kcal=total_calories,
         notes=notes,
     )
+
+
