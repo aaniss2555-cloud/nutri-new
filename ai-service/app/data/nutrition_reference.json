@@ -1,32 +1,236 @@
 {
-  "rice": {
-    "display_name": "Rice",
-    "calories_per_100g": 130,
-    "default_portion_g": 180,
-    "source": "demo_reference"
-  },
-  "pasta": {
-    "display_name": "Pasta",
-    "calories_per_100g": 158,
-    "default_portion_g": 200,
-    "source": "demo_reference"
-  },
-  "chicken": {
-    "display_name": "Chicken",
-    "calories_per_100g": 165,
-    "default_portion_g": 150,
-    "source": "demo_reference"
-  },
-  "salad": {
-    "display_name": "Salad",
-    "calories_per_100g": 35,
-    "default_portion_g": 120,
-    "source": "demo_reference"
-  },
-  "mixed_meal": {
-    "display_name": "Mixed meal",
-    "calories_per_100g": 145,
-    "default_portion_g": 250,
-    "source": "demo_reference"
-  }
+    "pizza":  {
+                  "display_name":  "Pizza",
+                  "calories_per_100g":  266,
+                  "default_portion_g":  140,
+                  "source":  "Nutrition5k: pizza"
+              },
+    "rice":  {
+                 "display_name":  "Rice",
+                 "calories_per_100g":  130,
+                 "default_portion_g":  180,
+                 "source":  "Nutrition5k: white rice"
+             },
+    "white rice":  {
+                       "display_name":  "White Rice",
+                       "calories_per_100g":  130,
+                       "default_portion_g":  180,
+                       "source":  "Nutrition5k: white rice"
+                   },
+    "bread":  {
+                  "display_name":  "Bread",
+                  "calories_per_100g":  265.4,
+                  "default_portion_g":  60,
+                  "source":  "Nutrition5k: bread"
+              },
+    "pasta":  {
+                  "display_name":  "Pasta",
+                  "calories_per_100g":  131.6,
+                  "default_portion_g":  180,
+                  "source":  "Nutrition5k: pasta"
+              },
+    "noodles":  {
+                    "display_name":  "Noodles",
+                    "calories_per_100g":  138,
+                    "default_portion_g":  180,
+                    "source":  "Nutrition5k: noodles"
+                },
+    "potato":  {
+                   "display_name":  "Potato",
+                   "calories_per_100g":  77,
+                   "default_portion_g":  160,
+                   "source":  "Nutrition5k: potatoes"
+               },
+    "carrot":  {
+                   "display_name":  "Carrot",
+                   "calories_per_100g":  41,
+                   "default_portion_g":  80,
+                   "source":  "Nutrition5k: carrot"
+               },
+    "broccoli":  {
+                     "display_name":  "Broccoli",
+                     "calories_per_100g":  35,
+                     "default_portion_g":  120,
+                     "source":  "Nutrition5k: broccoli"
+                 },
+    "tomato":  {
+                   "display_name":  "Tomato",
+                   "calories_per_100g":  34,
+                   "default_portion_g":  100,
+                   "source":  "Nutrition5k: tomatoes"
+               },
+    "cucumber":  {
+                     "display_name":  "Cucumber",
+                     "calories_per_100g":  10,
+                     "default_portion_g":  100,
+                     "source":  "Nutrition5k: cucumbers"
+                 },
+    "lettuce":  {
+                    "display_name":  "Lettuce",
+                    "calories_per_100g":  15,
+                    "default_portion_g":  80,
+                    "source":  "Nutrition5k: lettuce"
+                },
+    "onion":  {
+                  "display_name":  "Onion",
+                  "calories_per_100g":  40,
+                  "default_portion_g":  60,
+                  "source":  "Nutrition5k: onions"
+              },
+    "pepper":  {
+                   "display_name":  "Pepper",
+                   "calories_per_100g":  40,
+                   "default_portion_g":  80,
+                   "source":  "Nutrition5k: bell peppers"
+               },
+    "corn":  {
+                 "display_name":  "Corn",
+                 "calories_per_100g":  96,
+                 "default_portion_g":  100,
+                 "source":  "Nutrition5k: corn"
+             },
+    "apple":  {
+                  "display_name":  "Apple",
+                  "calories_per_100g":  52,
+                  "default_portion_g":  180,
+                  "source":  "Nutrition5k: apple"
+              },
+    "banana":  {
+                   "display_name":  "Banana",
+                   "calories_per_100g":  89,
+                   "default_portion_g":  120,
+                   "source":  "Nutrition5k: banana"
+               },
+    "orange":  {
+                   "display_name":  "Orange",
+                   "calories_per_100g":  47,
+                   "default_portion_g":  160,
+                   "source":  "Nutrition5k: orange"
+               },
+    "strawberry":  {
+                       "display_name":  "Strawberry",
+                       "calories_per_100g":  33,
+                       "default_portion_g":  150,
+                       "source":  "Nutrition5k: strawberries"
+                   },
+    "grape":  {
+                  "display_name":  "Grape",
+                  "calories_per_100g":  67,
+                  "default_portion_g":  150,
+                  "source":  "Nutrition5k: grape juice"
+              },
+    "egg":  {
+                "display_name":  "Egg",
+                "calories_per_100g":  148,
+                "default_portion_g":  50,
+                "source":  "Nutrition5k: scrambled eggs"
+            },
+    "fish":  {
+                 "display_name":  "Fish",
+                 "calories_per_100g":  90,
+                 "default_portion_g":  150,
+                 "source":  "Nutrition5k: fish"
+             },
+    "shrimp":  {
+                   "display_name":  "Shrimp",
+                   "calories_per_100g":  99,
+                   "default_portion_g":  120,
+                   "source":  "Nutrition5k: shrimp"
+               },
+    "steak":  {
+                  "display_name":  "Steak",
+                  "calories_per_100g":  250,
+                  "default_portion_g":  170,
+                  "source":  "Nutrition5k: beef"
+              },
+    "pork":  {
+                 "display_name":  "Pork",
+                 "calories_per_100g":  238,
+                 "default_portion_g":  170,
+                 "source":  "Nutrition5k: pork"
+             },
+    "chicken duck":  {
+                         "display_name":  "Chicken Duck",
+                         "calories_per_100g":  165,
+                         "default_portion_g":  170,
+                         "source":  "Nutrition5k: chicken"
+                     },
+    "sausage":  {
+                    "display_name":  "Sausage",
+                    "calories_per_100g":  344.6,
+                    "default_portion_g":  100,
+                    "source":  "Nutrition5k: sausage"
+                },
+    "cheese butter":  {
+                          "display_name":  "Cheese Butter",
+                          "calories_per_100g":  402,
+                          "default_portion_g":  40,
+                          "source":  "Nutrition5k: cheese"
+                      },
+    "cake":  {
+                 "display_name":  "Cake",
+                 "calories_per_100g":  415.3,
+                 "default_portion_g":  100,
+                 "source":  "Nutrition5k: carrot cake"
+             },
+    "biscuit":  {
+                    "display_name":  "Biscuit",
+                    "calories_per_100g":  352.5,
+                    "default_portion_g":  40,
+                    "source":  "Nutrition5k: biscuits"
+                },
+    "chocolate":  {
+                      "display_name":  "Chocolate",
+                      "calories_per_100g":  546.1,
+                      "default_portion_g":  40,
+                      "source":  "Nutrition5k: chocolate"
+                  },
+    "ice cream":  {
+                      "display_name":  "Ice Cream",
+                      "calories_per_100g":  418.9,
+                      "default_portion_g":  100,
+                      "source":  "Nutrition5k: ice cream cones"
+                  },
+    "milk":  {
+                 "display_name":  "Milk",
+                 "calories_per_100g":  51,
+                 "default_portion_g":  240,
+                 "source":  "Nutrition5k: milk"
+             },
+    "coffee":  {
+                   "display_name":  "Coffee",
+                   "calories_per_100g":  0,
+                   "default_portion_g":  240,
+                   "source":  "Nutrition5k: coffee"
+               },
+    "juice":  {
+                  "display_name":  "Juice",
+                  "calories_per_100g":  67,
+                  "default_portion_g":  240,
+                  "source":  "Nutrition5k: grape juice"
+              },
+    "soup":  {
+                 "display_name":  "Soup",
+                 "calories_per_100g":  35.5,
+                 "default_portion_g":  300,
+                 "source":  "Nutrition5k: chicken soup"
+             },
+    "salad":  {
+                  "display_name":  "Salad",
+                  "calories_per_100g":  64.6,
+                  "default_portion_g":  180,
+                  "source":  "Nutrition5k: garden salad"
+              },
+    "blueberry":  {
+                      "display_name":  "Blueberry",
+                      "calories_per_100g":  57,
+                      "default_portion_g":  150,
+                      "source":  "Nutrition5k/manual match: blueberries"
+                  },
+    "sauce":  {
+                  "display_name":  "Sauce",
+                  "calories_per_100g":  80,
+                  "default_portion_g":  40,
+                  "source":  "Generic nutrition reference: sauce"
+              }
 }

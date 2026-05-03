@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 from io import BytesIO
@@ -5,16 +6,18 @@ from pathlib import Path
 
 import numpy as np
 from fastapi import HTTPException
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageFilter, ImageOps, UnidentifiedImageError
 
 from app.schemas import BoundingBox, FoodDetection, PredictionResponse
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 REFERENCE_PATH = PROJECT_ROOT / "app" / "data" / "nutrition_reference.json"
-DEFAULT_MODEL_PATH = Path(r"C:\Users\user\Downloads\foodinsseg_yolov8n_50plus20epoch_best.pt")
+DEFAULT_MODEL_PATH = Path(r"C:\Users\user\Downloads\best 31+46 yolo s.pt")
 LOCAL_ULTRALYTICS_CONFIG = PROJECT_ROOT / ".ultralytics"
 CONFIDENCE_THRESHOLD = 0.35
 MAX_DETECTIONS = 3
+MAX_IMAGE_SIDE = 1280
+BLUR_WARNING_THRESHOLD = 85.0
 os.environ.setdefault("YOLO_CONFIG_DIR", str(LOCAL_ULTRALYTICS_CONFIG))
 os.environ.setdefault("ULTRALYTICS_CONFIG_DIR", str(LOCAL_ULTRALYTICS_CONFIG))
 LOCAL_ULTRALYTICS_CONFIG.mkdir(parents=True, exist_ok=True)
@@ -57,6 +60,60 @@ def get_model():
 
     _MODEL = YOLO(str(model_path))
     return _MODEL
+
+
+def estimate_blur_score(image: Image.Image) -> float:
+    """Approximate blur with variance of a simple Laplacian filter."""
+    gray = np.asarray(image.convert("L"), dtype=np.float32)
+    if gray.size == 0:
+        return 0.0
+
+    laplacian = (
+        -4 * gray
+        + np.roll(gray, 1, axis=0)
+        + np.roll(gray, -1, axis=0)
+        + np.roll(gray, 1, axis=1)
+        + np.roll(gray, -1, axis=1)
+    )
+    return round(float(laplacian.var()), 2)
+
+
+def preprocess_image(image: Image.Image) -> tuple[Image.Image, list[str]]:
+    notes: list[str] = []
+
+    processed = ImageOps.exif_transpose(image).convert("RGB")
+    notes.append("Applied EXIF orientation correction and converted image to RGB.")
+
+    original_size = processed.size
+    processed.thumbnail((MAX_IMAGE_SIDE, MAX_IMAGE_SIDE), Image.Resampling.LANCZOS)
+    if processed.size != original_size:
+        notes.append(
+            f"Resized image from {original_size[0]}x{original_size[1]} to {processed.size[0]}x{processed.size[1]} for faster inference."
+        )
+
+    blur_score = estimate_blur_score(processed)
+    notes.append(f"Blur score: {blur_score}. Higher is sharper.")
+    if blur_score < BLUR_WARNING_THRESHOLD:
+        notes.append("Image may be blurry; detection confidence can be lower.")
+
+    processed = ImageOps.autocontrast(processed, cutoff=1)
+    processed = processed.filter(ImageFilter.UnsharpMask(radius=1.2, percent=135, threshold=3))
+    notes.append("Applied light auto-contrast and sharpening before inference.")
+
+    return processed, notes
+
+
+def encode_annotated_result(result) -> tuple[str | None, str | None]:
+    try:
+        annotated_bgr = result.plot()
+        annotated_rgb = annotated_bgr[..., ::-1]
+        annotated_image = Image.fromarray(annotated_rgb)
+        buffer = BytesIO()
+        annotated_image.save(buffer, format="JPEG", quality=88)
+        encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+        return encoded, "image/jpeg"
+    except Exception:
+        return None, None
 
 
 def estimate_calories_from_reference(label: str) -> tuple[float | None, float | None, str | None]:
@@ -121,9 +178,9 @@ def predict_food_image(
 ) -> PredictionResponse:
     try:
         with Image.open(BytesIO(image_bytes)) as image:
-            rgb_image = image.convert("RGB")
-            width, height = rgb_image.size
-            image_array = np.array(rgb_image)
+            processed_image, preprocessing_notes = preprocess_image(image)
+            width, height = processed_image.size
+            image_array = np.array(processed_image)
     except UnidentifiedImageError as exc:
         raise HTTPException(status_code=400, detail="Could not read the uploaded image.") from exc
 
@@ -133,6 +190,8 @@ def predict_food_image(
         result = model.predict(image_array, verbose=False, device="cpu")[0]
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"AI inference failed: {exc}") from exc
+
+    annotated_image_base64, annotated_image_mime = encode_annotated_result(result)
 
     raw_detections: list[FoodDetection] = []
     if result.boxes is not None and len(result.boxes) > 0:
@@ -161,8 +220,10 @@ def predict_food_image(
         f"Received {content_type} image successfully.",
         f"Loaded trained model from {get_model_path().name}.",
         f"Showing up to {MAX_DETECTIONS} strongest unique detections with confidence >= {CONFIDENCE_THRESHOLD:.1f}.",
-        "Calorie estimates currently use the small local nutrition reference when a detected label matches.",
+        "Calorie estimates use a Nutrition5k-derived local reference with default serving sizes when a detected label matches.",
     ]
+    if annotated_image_base64:
+        notes.append("Generated an annotated preview image with YOLO boxes/masks.")
     if hidden_detection_count > 0:
         notes.append(f"Filtered out {hidden_detection_count} lower-confidence or duplicate detections.")
     if raw_detections and not detections:
@@ -176,11 +237,12 @@ def predict_food_image(
         image_width=width,
         image_height=height,
         model_name=get_model_path().stem,
-        model_version="50plus20epoch-yolov8n",
-        dataset_note="FoodInsSeg-trained YOLO segmentation model. Calorie estimation still uses a basic local nutrition reference.",
+        model_version="31plus46epoch-yolov8s",
+        dataset_note="FoodInsSeg-trained YOLO segmentation model with Level 1 calorie estimation from a Nutrition5k-derived local reference.",
         detections=detections,
         total_estimated_calories_kcal=total_calories,
+        annotated_image_base64=annotated_image_base64,
+        annotated_image_mime=annotated_image_mime,
+        preprocessing_notes=preprocessing_notes,
         notes=notes,
     )
-
-

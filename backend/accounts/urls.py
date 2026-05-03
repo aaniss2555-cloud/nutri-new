@@ -15,16 +15,21 @@ from .views import (
     InquiryCreateView,
     MeView,
     MealPredictView,
+    MealLogViewSet,
     MySubscriptionView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
     PlanViewSet,
+    PlanTemplateViewSet,
+    ProgressSummaryView,
     RegisterView,
     SubscriptionPlanView,
 )
 
 router = DefaultRouter()
 router.register(r"plans", PlanViewSet, basename="plan")
+router.register(r"plan-templates", PlanTemplateViewSet, basename="plan-template")
+router.register(r"meal-logs", MealLogViewSet, basename="meal-log")
 router.register(r"consultations", ConsultationViewSet, basename="consultation")
 router.register(r"admin-users", AdminUserViewSet, basename="admin-user")
 router.register(r"admin-subscription-plans", AdminSubscriptionPlanViewSet, basename="admin-subscription-plan")
@@ -38,6 +43,7 @@ urlpatterns = [
     path("login/refresh/", TokenRefreshView.as_view(), name="refresh"),
     path("me/", MeView.as_view(), name="me"),
     path("meal-predict/", MealPredictView.as_view(), name="meal-predict"),
+    path("progress/", ProgressSummaryView.as_view(), name="progress-summary"),
     path("clients/", ClientListView.as_view(), name="clients"),
     path("admin-summary/", AdminSummaryView.as_view(), name="admin-summary"),
     path("inquiries/", InquiryCreateView.as_view(), name="inquiry-create"),
@@ -50,3 +56,5 @@ urlpatterns = [
         name="password-reset-confirm",
     ),
 ] + router.urls
+
+

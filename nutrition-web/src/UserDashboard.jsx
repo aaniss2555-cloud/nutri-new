@@ -1,40 +1,31 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bar } from "react-chartjs-2";
 import { useNavigate } from "react-router-dom";
 import api from "./services/axiosInstance";
 import { logout } from "./services/Auth";
+import ProgressStrip from "./ProgressStrip";
 
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Tooltip,
-  Title,
-} from "chart.js";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Title);
 
 function UserDashboard() {
   const [activeSection, setActiveSection] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [preview, setPreview] = useState(null);
-  const [selectedDay, setSelectedDay] = useState(null);
   const [pendingCalories, setPendingCalories] = useState(null);
   const [aiPrediction, setAiPrediction] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [profile, setProfile] = useState({});
+  const [profileDraft, setProfileDraft] = useState({});
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
   const [plans, setPlans] = useState([]);
   const [consultations, setConsultations] = useState([]);
-  const [weeklyCalories, setWeeklyCalories] = useState(Array(7).fill(0));
+  const [progressDays, setProgressDays] = useState([]);
+  const [progressRange, setProgressRange] = useState("plan");
   const [mealHistory, setMealHistory] = useState([]);
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
   const uploadInputRef = useRef(null);
   const navigate = useNavigate();
-
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const todayIndex = new Date().getDay();
 
   const toggleSidebar = () => setSidebarOpen((prev) => !prev);
 
@@ -60,16 +51,30 @@ function UserDashboard() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const [profileRes, plansRes, consultationsRes] = await Promise.all([
+        const [profileRes, plansRes, consultationsRes, progressRes, mealLogsRes] = await Promise.all([
           api.get("me/"),
           api.get("plans/"),
           api.get("consultations/"),
+          api.get(`progress/?range=${progressRange}`),
+          api.get("meal-logs/"),
         ]);
 
         localStorage.setItem("userRole", profileRes.data.role || "client");
         setProfile(profileRes.data);
+        setProfileDraft(profileRes.data);
         setPlans(plansRes.data);
         setConsultations(consultationsRes.data);
+        setProgressDays(progressRes.data.days || []);
+        setMealHistory(
+          mealLogsRes.data.map((meal) => ({
+            id: meal.id,
+            image: meal.image_url,
+            calories: meal.calories,
+            label: meal.meal_name || "Meal image",
+            status: meal.ai_status,
+            day: meal.meal_date,
+          })),
+        );
       } catch (err) {
         console.error("Failed to fetch profile/plans", err);
         showToast("Failed to load dashboard data.");
@@ -90,6 +95,7 @@ function UserDashboard() {
   };
 
   const activeSubscription = profile.active_subscription || null;
+  const hasDashboardAccess = Boolean(activeSubscription);
   const currentPlan = profile.latest_nutrition_plan || plans[0] || null;
   const subscriptionTier =
     activeSubscription?.subscription_plan?.code || "none";
@@ -97,34 +103,35 @@ function UserDashboard() {
     activeSubscription?.subscription_plan?.feature_access || {};
   const canUseAiTracking = Boolean(featureAccess.ai_calorie_tracking);
 
-  const chartData = {
-    labels: days,
-    datasets: [
-      {
-        label: "Calories",
-        data: weeklyCalories,
-        backgroundColor: days.map((_, index) =>
-          index === todayIndex ? "#68ba7f" : "#2f5d50",
-        ),
-      },
-    ],
-  };
+  useEffect(() => {
+    if (!loading && !hasDashboardAccess && !["dashboard", "profile"].includes(activeSection)) {
+      setActiveSection("dashboard");
+    }
+  }, [activeSection, hasDashboardAccess, loading]);
 
-  const chartOptions = {
-    responsive: true,
-    plugins: {
-      tooltip: {
-        enabled: true,
-      },
-    },
-    onClick: (_, elements) => {
-      if (elements.length > 0) {
-        const index = elements[0].index;
-        setSelectedDay(`${days[index]}: ${weeklyCalories[index]} kcal`);
-      }
-    },
-  };
+  const todayProgress = progressDays[progressDays.length - 1] || null;
+  const todayCalories = todayProgress?.calories || 0;
+  const weeklyAverage = progressDays.length
+    ? Math.round(progressDays.reduce((sum, day) => sum + (day.calories || 0), 0) / progressDays.length)
+    : 0;
 
+  const refreshProgress = async () => {
+    const [progressRes, mealLogsRes] = await Promise.all([
+      api.get(`progress/?range=${progressRange}`),
+      api.get("meal-logs/"),
+    ]);
+    setProgressDays(progressRes.data.days || []);
+    setMealHistory(
+      mealLogsRes.data.map((meal) => ({
+        id: meal.id,
+        image: meal.image_url,
+        calories: meal.calories,
+        label: meal.meal_name || "Meal image",
+        status: meal.ai_status,
+        day: meal.meal_date,
+      })),
+    );
+  };
   const subscriptionStatusLabel = useMemo(() => {
     if (!activeSubscription) {
       return "No subscription";
@@ -182,7 +189,10 @@ function UserDashboard() {
         firstDetection?.estimated_calories_kcal ??
         null;
 
-      setAiPrediction(prediction);
+      setAiPrediction({
+        ...prediction,
+        status: prediction.status,
+      });
       setPendingCalories(estimatedCalories);
       showToast("AI prediction received.");
     } catch (err) {
@@ -199,54 +209,73 @@ function UserDashboard() {
     }
   };
 
-  const confirmUpload = () => {
+  const confirmUpload = async () => {
     if (!preview || !aiPrediction) {
       return;
     }
 
     const caloriesToAdd = pendingCalories ?? 0;
-    const updated = [...weeklyCalories];
-    updated[todayIndex] = (updated[todayIndex] || 0) + caloriesToAdd;
-    setWeeklyCalories(updated);
 
-    setMealHistory((prev) => [
-      {
-        id: Date.now(),
-        image: preview,
+    try {
+      await api.post("meal-logs/", {
+        meal_name: aiPrediction.detections?.[0]?.label || "Meal image",
         calories: caloriesToAdd,
-        label: aiPrediction.detections?.[0]?.label || "Meal image",
-        status: aiPrediction.status,
-        day: days[todayIndex],
-      },
-      ...prev,
-    ]);
+        image_url: "",
+        ai_status: aiPrediction.status || "saved",
+      });
+      await refreshProgress();
+      showToast(
+        caloriesToAdd > 0
+          ? `Added ${caloriesToAdd} kcal to today`
+          : "Meal prediction saved.",
+      );
+    } catch (error) {
+      console.error("Failed to save meal log", error);
+      const errorMessage = error.response?.data?.detail || JSON.stringify(error.response?.data || {}) || "Failed to save meal log.";
+      showToast(errorMessage);
+    }
 
     setPendingCalories(null);
     setAiPrediction(null);
     setPreview(null);
     resetUploadInput();
-    showToast(
-      caloriesToAdd > 0
-        ? `Added ${caloriesToAdd} kcal to ${days[todayIndex]}`
-        : "Meal prediction saved.",
-    );
+  };
+
+  const startEditingProfile = () => {
+    setProfileDraft(profile);
+    setIsEditingProfile(true);
+  };
+
+  const cancelProfileEdit = () => {
+    setProfileDraft(profile);
+    setIsEditingProfile(false);
+  };
+
+  const updateProfileDraft = (field, value) => {
+    setProfileDraft((current) => ({ ...current, [field]: value }));
   };
 
   const saveProfile = async () => {
+    setProfileSaving(true);
+
     try {
       const response = await api.patch("me/", {
-        age: profile.age,
-        weight: profile.weight,
-        allergies: profile.allergies,
-        avoid: profile.avoid,
-        phone: profile.phone,
+        age: profileDraft.age,
+        weight: profileDraft.weight,
+        allergies: profileDraft.allergies,
+        avoid: profileDraft.avoid,
+        phone: profileDraft.phone,
       });
 
       setProfile(response.data);
+      setProfileDraft(response.data);
+      setIsEditingProfile(false);
       showToast("Profile updated successfully.");
     } catch (err) {
       console.error("Failed to update profile", err);
       showToast("Failed to update profile.");
+    } finally {
+      setProfileSaving(false);
     }
   };
 
@@ -255,51 +284,104 @@ function UserDashboard() {
     navigate("/login");
   };
 
-  const renderDashboard = () => (
-    <div className="overview">
-      <div className="card-grid card-grid-spaced">
-        <div className="stat-card">
-          <h4>Subscription</h4>
+  const renderDashboard = () => {
+    if (!hasDashboardAccess) {
+      return (
+        <div className="overview dashboard-home-shell subscription-required-shell">
+          <section className="role-hero-card client-hero-card subscription-required-panel">
+            <div>
+              <span className="role-hero-kicker">Subscription required</span>
+              <h3>Choose a subscription to unlock your nutrition workspace.</h3>
+              <p>
+                Your profile stays available, but AI tracking, consultations, nutrition plans,
+                and progress tools open after you subscribe to Normal or Premium access.
+              </p>
+              <div className="role-hero-actions">
+                <button type="button" className="hero-action-primary" onClick={() => navigate("/subscriptions")}>
+                  View Subscriptions
+                </button>
+                <button type="button" className="hero-action-secondary" onClick={() => setActiveSection("profile")}>
+                  Complete Profile
+                </button>
+              </div>
+            </div>
+            <div className="subscription-required-note">
+              <span>Available now</span>
+              <strong>Profile</strong>
+              <p>Keep your health history ready before choosing a plan.</p>
+            </div>
+          </section>
+        </div>
+      );
+    }
+
+    return (
+    <div className="overview dashboard-home-shell">
+      <section className="role-hero-card client-hero-card">
+        <div>
+          <span className="role-hero-kicker">Today&apos;s focus</span>
+          <h3>Track your meals, follow your plan, and stay close to your nutritionist.</h3>
           <p>
-            {activeSubscription?.subscription_plan?.name || "No subscription"}
+            The AI meal camera is the main feature of the platform. Start there when you eat,
+            then use your progress and plan cards to understand how the day is going.
           </p>
+          <div className="role-hero-actions">
+            <button type="button" className="hero-action-primary" onClick={() => setActiveSection("upload")}>
+              Open AI Camera
+            </button>
+            <button type="button" className="hero-action-secondary" onClick={() => setActiveSection("nutrition-plan")}>
+              View My Plan
+            </button>
+          </div>
         </div>
-        <div className="stat-card">
-          <h4>Nutrition Plan</h4>
-          <p>{currentPlan ? currentPlan.title : "No plan assigned"}</p>
+      </section>
+
+      <div className="dashboard-metric-strip">
+        <div className="metric-pill">
+          <span>Subscription</span>
+          <strong>{activeSubscription?.subscription_plan?.name || "No subscription"}</strong>
         </div>
-        <div className="stat-card">
-          <h4>Today&apos;s Calories</h4>
-          <p>{weeklyCalories[todayIndex] ?? 0} kcal</p>
+        <div className="metric-pill">
+          <span>Nutrition Plan</span>
+          <strong>{currentPlan ? currentPlan.title : "No plan assigned"}</strong>
         </div>
-        <div className="stat-card">
-          <h4>Weekly Avg</h4>
-          <p>
-            {Math.round(weeklyCalories.reduce((a, b) => a + b, 0) / 7)} kcal/day
-          </p>
+        <div className="metric-pill">
+          <span>Today</span>
+          <strong>{todayCalories} kcal</strong>
+        </div>
+        <div className="metric-pill">
+          <span>Weekly Avg</span>
+          <strong>{weeklyAverage} kcal/day</strong>
         </div>
       </div>
 
-      <div className="dashboard-summary-grid">
-        <div className="summary-card">
-          <h3>Access Layer</h3>
-          <p>
-            Your current tier is <strong>{subscriptionTier}</strong>.
-          </p>
-          <p>Status: {subscriptionStatusLabel}</p>
-        </div>
-
-        <div className="summary-card">
-          <h3>Nutrition Guidance</h3>
-          <p>
-            {currentPlan
-              ? "Your nutritionist has already prepared guidance for you."
-              : "Your nutrition plan will appear here after the consultation."}
-          </p>
-        </div>
+      <div className="action-card-grid">
+        <button type="button" className="dashboard-action-card action-featured" onClick={() => setActiveSection("upload")}>
+          <strong>Scan A Meal</strong>
+          <p>Upload food, get AI detections, and save calories into your daily history.</p>
+        </button>
+        <button type="button" className="dashboard-action-card" onClick={() => setActiveSection("nutrition-plan")}>
+          <strong>Follow My Plan</strong>
+          <p>{currentPlan ? "Review targets, notes, and plan progress." : "Your assigned nutrition plan will appear here."}</p>
+        </button>
+        <button type="button" className="dashboard-action-card" onClick={() => setActiveSection("consultations")}>
+          <strong>Zoom Consultations</strong>
+          <p>See scheduled meetings and join when your nutritionist creates a link.</p>
+        </button>
+        <button type="button" className="dashboard-action-card" onClick={() => setActiveSection("subscription")}>
+          <strong>Access Status</strong>
+          <p>{subscriptionTier} tier - {subscriptionStatusLabel}</p>
+        </button>
       </div>
+
+      <ProgressStrip
+        days={progressDays}
+        title="Quick Progress Preview"
+        subtitle="A short look at your meal history. Open AI Tracking or My Nutrition Plan for filters."
+      />
     </div>
-  );
+    );
+  };
 
   const renderSubscription = () => (
     <div className="profile-panel">
@@ -388,7 +470,7 @@ function UserDashboard() {
   );
 
   const renderNutritionPlan = () => (
-    <div className="profile-panel">
+    <div className="profile-panel nutrition-plan-panel">
       <div className="section-heading">
         <h3>My Nutrition Plan</h3>
         <p>
@@ -399,52 +481,74 @@ function UserDashboard() {
 
       {currentPlan ? (
         <>
-          <div className="notes-card">
-            <h5>{currentPlan.title}</h5>
-            <p>{currentPlan.description}</p>
-          </div>
+          <article className="nutrition-plan-article">
+            <div className="plan-article-main">
+              <span className="plan-article-kicker">Current assigned plan</span>
+              <h4>{currentPlan.title}</h4>
+              <p className="plan-article-description">
+                {currentPlan.description || "No description was added yet."}
+              </p>
 
-          <div className="client-details-grid">
-            <div className="detail-card">
-              <span>Daily Target</span>
-              <strong>
-                {currentPlan.daily_calorie_target
-                  ? `${currentPlan.daily_calorie_target} kcal`
-                  : "Not specified"}
-              </strong>
+              <div className="plan-article-notes">
+                <span>Follow-up notes</span>
+                <p>
+                  {currentPlan.follow_up_notes ||
+                    "Your nutritionist has not added follow-up notes yet."}
+                </p>
+              </div>
             </div>
-            <div className="detail-card">
-              <span>Duration</span>
-              <strong>
-                {currentPlan.duration_weeks
-                  ? `${currentPlan.duration_weeks} weeks`
-                  : "Flexible"}
-              </strong>
-            </div>
-            <div className="detail-card">
-              <span>Created By</span>
-              <strong>{currentPlan.created_by_name || "Nutritionist"}</strong>
-            </div>
-            <div className="detail-card">
-              <span>Status</span>
-              <strong>{currentPlan.is_active ? "Active" : "Archived"}</strong>
-            </div>
-          </div>
 
-          {currentPlan.follow_up_notes && (
-            <div className="notes-card">
-              <h5>Follow-up Notes</h5>
-              <p>{currentPlan.follow_up_notes}</p>
-            </div>
-          )}
+            <aside className="plan-article-meta" aria-label="Plan information">
+              <div>
+                <span>Daily Target</span>
+                <strong>
+                  {currentPlan.daily_calorie_target
+                    ? `${currentPlan.daily_calorie_target} kcal`
+                    : "Not specified"}
+                </strong>
+              </div>
+              <div>
+                <span>Duration</span>
+                <strong>
+                  {currentPlan.duration_weeks
+                    ? `${currentPlan.duration_weeks} weeks`
+                    : "Flexible"}
+                </strong>
+              </div>
+              <div>
+                <span>Created By</span>
+                <strong>{currentPlan.created_by_name || "Nutritionist"}</strong>
+              </div>
+              <div>
+                <span>Status</span>
+                <strong>{currentPlan.is_active ? "Active" : "Archived"}</strong>
+              </div>
+            </aside>
+          </article>
 
-          <details className="progress-dropdown" open>
-            <summary>Progress</summary>
-            <div className="progress-chart">
-              <Bar data={chartData} options={chartOptions} />
-              {selectedDay && <p className="selected-day">{selectedDay}</p>}
-            </div>
-          </details>
+          <ProgressStrip
+            days={progressDays}
+            title="Calorie Progress"
+            subtitle="Each division is one day. Use the filter to see the full plan history or recent days."
+            actions={
+              <select
+                className="progress-range-select"
+                value={progressRange}
+                onChange={async (event) => {
+                  const nextRange = event.target.value;
+                  setProgressRange(nextRange);
+                  const response = await api.get(`progress/?range=${nextRange}`);
+                  setProgressDays(response.data.days || []);
+                }}
+              >
+                <option value="plan">Current plan</option>
+                <option value="7">Last 7 days</option>
+                <option value="14">Last 14 days</option>
+                <option value="30">Last 30 days</option>
+                <option value="all">All logs</option>
+              </select>
+            }
+          />
         </>
       ) : (
         <p className="empty-state">
@@ -474,51 +578,59 @@ function UserDashboard() {
         </div>
       ) : (
         <>
-          <input
-            ref={uploadInputRef}
-            type="file"
-            id="mealUpload"
-            accept="image/*"
-            onChange={(e) => handleUpload(e.target.files[0])}
-            className="upload-input-hidden"
-          />
-          <label htmlFor="mealUpload" className="upload-btn">
-            Select Meal Photo
-          </label>
+          <div className="upload-area">
+            <input
+              ref={uploadInputRef}
+              type="file"
+              id="mealUpload"
+              accept="image/*"
+              onChange={(e) => handleUpload(e.target.files[0])}
+              className="upload-input-hidden"
+            />
+            <div className="upload-area-copy">
+              <span>AI meal scan</span>
+              <h4>Add today&apos;s meal</h4>
+              <p>Select a clear food photo. The AI service will detect food items, then you can confirm the result into your progress.</p>
+            </div>
+            <label htmlFor="mealUpload" className="upload-btn">
+              Select Meal Photo
+            </label>
+          </div>
 
           {preview && (
             <div className="meal-preview">
-              <img src={preview} alt="Meal preview" />
+              <img src={aiPrediction?.annotated_image_base64 ? `data:${aiPrediction.annotated_image_mime || "image/jpeg"};base64,${aiPrediction.annotated_image_base64}` : preview} alt="Meal preview" />
 
               {aiLoading && <p>Sending image to AI service...</p>}
 
               {aiPrediction && (
                 <div className="ai-result-card">
                   <div className="ai-result-header">
-                    <span>{aiPrediction.model_name}</span>
-                    <strong>{aiPrediction.status}</strong>
+                    <span>AI meal result</span>
+                    <strong>{aiPrediction.detections?.length ? "Food detected" : "No food name found"}</strong>
                   </div>
                   <p>
                     Estimated Calories: {pendingCalories ?? "Not available yet"}
                     {pendingCalories ? " kcal" : ""}
                   </p>
 
-                  <div className="ai-detection-list">
-                    {aiPrediction.detections?.map((item, index) => (
-                      <div
-                        key={`${item.label}-${index}`}
-                        className="ai-detection-item"
-                      >
-                        <span>{item.label}</span>
-                        <strong>{Math.round(item.confidence * 100)}%</strong>
-                      </div>
-                    ))}
-                  </div>
-
-                  <p className="ai-note">
-                    This result comes from the standalone FastAPI AI service
-                    using the current trained FoodInsSeg model.
-                  </p>
+                  {aiPrediction.detections?.length > 0 ? (
+                    <div className="ai-detection-list">
+                      {aiPrediction.detections.map((item, index) => (
+                        <div
+                          key={`${item.label}-${index}`}
+                          className="ai-detection-item"
+                        >
+                          <span>{item.label}</span>
+                          <strong>{Math.round(item.confidence * 100)}%</strong>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="ai-note">
+                      The model did not recognize a food name in this image yet, so calories are not available for this result.
+                    </p>
+                  )}
 
                   <button className="confirm-btn" onClick={confirmUpload}>
                     Confirm Result
@@ -528,6 +640,29 @@ function UserDashboard() {
             </div>
           )}
 
+          <ProgressStrip
+            days={progressDays}
+            title="Saved Meal Progress"
+            subtitle="This updates from confirmed meal logs when the AI result can be matched to the nutrition reference."
+            actions={
+              <select
+                className="progress-range-select"
+                value={progressRange}
+                onChange={async (event) => {
+                  const nextRange = event.target.value;
+                  setProgressRange(nextRange);
+                  const response = await api.get(`progress/?range=${nextRange}`);
+                  setProgressDays(response.data.days || []);
+                }}
+              >
+                <option value="plan">Current plan</option>
+                <option value="7">Last 7 days</option>
+                <option value="14">Last 14 days</option>
+                <option value="30">Last 30 days</option>
+                <option value="all">All logs</option>
+              </select>
+            }
+          />
           <div className="plan-history">
             <div className="section-heading">
               <h5>Recent Meal Estimates</h5>
@@ -540,7 +675,7 @@ function UserDashboard() {
               <div className="meal-history">
                 {mealHistory.map((meal) => (
                   <div key={meal.id} className="meal-item">
-                    <img src={meal.image} alt="Meal" />
+                    {meal.image ? <img src={meal.image} alt="Meal" /> : <div className="meal-placeholder">Meal</div>}
                     <strong>{meal.calories} kcal</strong>
                     <span>{meal.day}</span>
                   </div>
@@ -590,82 +725,130 @@ function UserDashboard() {
       )}
     </div>
   );
-  const renderProfile = () => (
-    <div className="profile-panel">
-      <div className="section-heading">
-        <h3>Profile</h3>
-        <p>
-          Keep your health information up to date so your nutritionist can
-          personalize your plan.
-        </p>
-      </div>
+  const renderProfile = () => {
+    const displayValue = (value) => value || "Not provided yet";
 
-      <div className="profile-form-card">
-        <div className="profile-form-grid">
-          <label className="profile-field">
-            <span>Age</span>
-            <input
-              type="number"
-              value={profile.age || ""}
-              onChange={(e) => setProfile({ ...profile, age: e.target.value })}
-            />
-          </label>
+    return (
+      <div className="profile-panel profile-view-panel profile-polished-panel">
+        <div className="profile-top-card">
+          <div className="profile-title-copy">
+            <span>Client health profile</span>
+            <h3>Profile</h3>
+            <p>
+              This information helps your nutritionist personalize your plan,
+              follow-up, and food recommendations.
+            </p>
+          </div>
 
-          <label className="profile-field">
-            <span>Weight</span>
-            <input
-              type="number"
-              value={profile.weight || ""}
-              onChange={(e) =>
-                setProfile({ ...profile, weight: e.target.value })
-              }
-            />
-          </label>
-
-          <label className="profile-field">
-            <span>Phone</span>
-            <input
-              type="text"
-              value={profile.phone || ""}
-              onChange={(e) =>
-                setProfile({ ...profile, phone: e.target.value })
-              }
-            />
-          </label>
-
-          <label className="profile-field profile-field-wide">
-            <span>Allergies</span>
-            <input
-              type="text"
-              value={profile.allergies || ""}
-              onChange={(e) =>
-                setProfile({ ...profile, allergies: e.target.value })
-              }
-            />
-          </label>
-
-          <label className="profile-field profile-field-wide">
-            <span>Foods to avoid</span>
-            <input
-              type="text"
-              value={profile.avoid || ""}
-              onChange={(e) =>
-                setProfile({ ...profile, avoid: e.target.value })
-              }
-            />
-          </label>
+          {!isEditingProfile ? (
+            <button className="profile-edit-btn" onClick={startEditingProfile}>
+              Edit Profile
+            </button>
+          ) : (
+            <span className="profile-editing-pill">Editing mode</span>
+          )}
         </div>
 
-        <button className="confirm-btn" onClick={saveProfile}>
-          Save Profile
-        </button>
+        <div className="profile-form-card profile-clean-card">
+          <div className="profile-form-grid profile-display-grid">
+            <label className="profile-field profile-metric-field">
+              <span>Age</span>
+              {isEditingProfile ? (
+                <input
+                  type="number"
+                  value={profileDraft.age || ""}
+                  onChange={(e) => updateProfileDraft("age", e.target.value)}
+                />
+              ) : (
+                <strong>{displayValue(profile.age)}</strong>
+              )}
+            </label>
+
+            <label className="profile-field profile-metric-field">
+              <span>Weight</span>
+              {isEditingProfile ? (
+                <input
+                  type="number"
+                  value={profileDraft.weight || ""}
+                  onChange={(e) => updateProfileDraft("weight", e.target.value)}
+                />
+              ) : (
+                <strong>
+                  {profile.weight ? `${profile.weight} kg` : "Not provided yet"}
+                </strong>
+              )}
+            </label>
+
+            <label className="profile-field profile-metric-field">
+              <span>Phone</span>
+              {isEditingProfile ? (
+                <input
+                  type="text"
+                  value={profileDraft.phone || ""}
+                  onChange={(e) => updateProfileDraft("phone", e.target.value)}
+                />
+              ) : (
+                <strong>{displayValue(profile.phone)}</strong>
+              )}
+            </label>
+
+            <label className="profile-field profile-note-field">
+              <span>Allergies</span>
+              {isEditingProfile ? (
+                <input
+                  type="text"
+                  value={profileDraft.allergies || ""}
+                  onChange={(e) => updateProfileDraft("allergies", e.target.value)}
+                />
+              ) : (
+                <strong>{displayValue(profile.allergies)}</strong>
+              )}
+            </label>
+
+            <label className="profile-field profile-note-field">
+              <span>Foods to avoid</span>
+              {isEditingProfile ? (
+                <input
+                  type="text"
+                  value={profileDraft.avoid || ""}
+                  onChange={(e) => updateProfileDraft("avoid", e.target.value)}
+                />
+              ) : (
+                <strong>{displayValue(profile.avoid)}</strong>
+              )}
+            </label>
+          </div>
+
+          {isEditingProfile && (
+            <div className="profile-actions">
+              <button
+                className="confirm-btn"
+                onClick={saveProfile}
+                disabled={profileSaving}
+              >
+                {profileSaving ? "Saving..." : "Save Changes"}
+              </button>
+              <button
+                className="profile-cancel-btn"
+                onClick={cancelProfileEdit}
+                disabled={profileSaving}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderContent = () => {
     if (loading) {
       return <p>Loading dashboard...</p>;
+    }
+
+    if (!hasDashboardAccess && !["dashboard", "profile"].includes(activeSection)) {
+      return renderDashboard();
     }
 
     switch (activeSection) {
@@ -696,30 +879,34 @@ function UserDashboard() {
           >
             Dashboard
           </li>
-          <li
-            className={activeSection === "subscription" ? "active" : ""}
-            onClick={() => setActiveSection("subscription")}
-          >
-            My Subscription
-          </li>
-          <li
-            className={activeSection === "nutrition-plan" ? "active" : ""}
-            onClick={() => setActiveSection("nutrition-plan")}
-          >
-            My Nutrition Plan
-          </li>
-          <li
-            className={activeSection === "upload" ? "active" : ""}
-            onClick={() => setActiveSection("upload")}
-          >
-            AI Tracking
-          </li>
-          <li
-            className={activeSection === "consultations" ? "active" : ""}
-            onClick={() => setActiveSection("consultations")}
-          >
-            Consultations
-          </li>
+          {hasDashboardAccess && (
+            <>
+              <li
+                className={activeSection === "subscription" ? "active" : ""}
+                onClick={() => setActiveSection("subscription")}
+              >
+                My Subscription
+              </li>
+              <li
+                className={activeSection === "nutrition-plan" ? "active" : ""}
+                onClick={() => setActiveSection("nutrition-plan")}
+              >
+                My Nutrition Plan
+              </li>
+              <li
+                className={activeSection === "upload" ? "active" : ""}
+                onClick={() => setActiveSection("upload")}
+              >
+                AI Tracking
+              </li>
+              <li
+                className={activeSection === "consultations" ? "active" : ""}
+                onClick={() => setActiveSection("consultations")}
+              >
+                Consultations
+              </li>
+            </>
+          )}
           <li
             className={activeSection === "profile" ? "active" : ""}
             onClick={() => setActiveSection("profile")}
@@ -765,6 +952,24 @@ function UserDashboard() {
 }
 
 export default UserDashboard;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -2,6 +2,10 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.utils import timezone
 
+def current_local_time():
+    return timezone.localtime().time()
+
+
 class CustomUserManager(BaseUserManager):
     use_in_migrations = True
 
@@ -129,6 +133,31 @@ class UserSubscription(models.Model):
         return f"{self.user.email} - {self.subscription_plan.name}"
 
 
+class PlanTemplate(models.Model):
+    title = models.CharField(max_length=100)
+    description = models.TextField()
+    created_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        related_name="plan_templates",
+        null=True,
+        blank=True,
+        limit_choices_to={"role": "nutritionist"},
+    )
+    daily_calorie_target = models.PositiveIntegerField(null=True, blank=True)
+    duration_weeks = models.PositiveIntegerField(null=True, blank=True)
+    follow_up_notes = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return self.title
+
+
 class Plan(models.Model):
     title = models.CharField(max_length=100)
     description = models.TextField()
@@ -146,6 +175,13 @@ class Plan(models.Model):
         blank=True,
         limit_choices_to={"role": "nutritionist"},
     )
+    source_template = models.ForeignKey(
+        PlanTemplate,
+        on_delete=models.SET_NULL,
+        related_name="assigned_plans",
+        null=True,
+        blank=True,
+    )
     daily_calorie_target = models.PositiveIntegerField(null=True, blank=True)
     duration_weeks = models.PositiveIntegerField(null=True, blank=True)
     follow_up_notes = models.TextField(blank=True)
@@ -158,6 +194,30 @@ class Plan(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class MealLog(models.Model):
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name="meal_logs",
+        limit_choices_to={"role": "client"},
+    )
+    meal_name = models.CharField(max_length=120, blank=True)
+    calories = models.PositiveIntegerField(default=0)
+    image_url = models.TextField(blank=True)
+    ai_status = models.CharField(max_length=60, blank=True)
+    meal_date = models.DateField(default=timezone.localdate)
+    meal_time = models.TimeField(default=current_local_time)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ["-meal_date", "-meal_time", "-id"]
+
+    def __str__(self):
+        return f"{self.user.email} - {self.meal_name or 'Meal'} - {self.calories} kcal"
+
 
 class Consultation(models.Model):
     STATUS_CHOICES = (
@@ -259,4 +319,6 @@ class BlogPost(models.Model):
 
     def __str__(self):
         return self.title
+
+
 

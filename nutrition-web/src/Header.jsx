@@ -1,6 +1,7 @@
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { logout } from "./services/Auth";
+import logo from "./assets/long-logo3.png";
 
 function Header() {
   const location = useLocation();
@@ -34,8 +35,8 @@ function Header() {
 
   return (
     <header className="header">
-      <Link to="/" className="logo logo-link">
-        Foodie
+      <Link to="/" className="logo logo-link" aria-label="Home">
+        <img src={logo} alt="Svmb logo" className="logo" />
       </Link>
 
       <nav className="header-nav">
@@ -100,7 +101,3 @@ function Header() {
 }
 
 export default Header;
-
-
-
-

@@ -1,0 +1,40 @@
+food_name,nutrition5k_match,calories_per_100g,default_serving_g,estimated_calories_default_serving
+pizza,pizza,266.0,140,372.4
+rice,white rice,130.0,180,234.0
+white rice,white rice,130.0,180,234.0
+bread,bread,265.4,60,159.2
+pasta,pasta,131.6,180,236.9
+noodles,noodles,138.0,180,248.4
+potato,potatoes,77.0,160,123.2
+carrot,carrot,41.0,80,32.8
+broccoli,broccoli,35.0,120,42.0
+tomato,tomatoes,34.0,100,34.0
+cucumber,cucumbers,10.0,100,10.0
+lettuce,lettuce,15.0,80,12.0
+onion,onions,40.0,60,24.0
+pepper,bell peppers,40.0,80,32.0
+corn,corn,96.0,100,96.0
+apple,apple,52.0,180,93.6
+banana,banana,89.0,120,106.8
+orange,orange,47.0,160,75.2
+strawberry,strawberries,33.0,150,49.5
+grape,grape juice,67.0,150,100.5
+egg,scrambled eggs,148.0,50,74.0
+fish,fish,90.0,150,135.0
+shrimp,shrimp,99.0,120,118.8
+steak,beef,250.0,170,425.0
+pork,pork,238.0,170,404.6
+chicken duck,chicken,165.0,170,280.5
+sausage,sausage,344.6,100,344.6
+cheese butter,cheese,402.0,40,160.8
+cake,carrot cake,415.3,100,415.3
+biscuit,biscuits,352.5,40,141.0
+chocolate,chocolate,546.1,40,218.4
+ice cream,ice cream cones,418.9,100,418.9
+milk,milk,51.0,240,122.4
+coffee,coffee,0.0,240,0.0
+juice,grape juice,67.0,240,160.8
+soup,chicken soup,35.5,300,106.5
+salad,garden salad,64.6,180,116.3
+blueberry,blueberries,57,150,85.5
+sauce,generic sauce,80,40,32

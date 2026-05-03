@@ -69,7 +69,7 @@ function AdminDashboard() {
     try {
       const response = await api.patch(`admin-users/${userId}/`, payload);
       setUsers((prev) => prev.map((user) => (user.id === userId ? response.data : user)));
-      showToast("User updated.");
+      showToast(response.data.detail || "User updated.");
       fetchAdminData();
     } catch (error) {
       showToast(error.response?.data?.detail || "Failed to update user.");
@@ -188,18 +188,55 @@ function AdminDashboard() {
   const filteredInquiries = inquiries.filter((inquiry) => inquiryFilter === "all" || inquiry.status === inquiryFilter);
 
   const renderOverview = () => (
-    <div className="admin-dashboard">
-      <div className="card-grid card-grid-spaced">
-        <div className="stat-card"><h4>Total Users</h4><p>{stats.total_users || 0}</p></div>
-        <div className="stat-card"><h4>Clients</h4><p>{stats.clients || 0}</p></div>
-        <div className="stat-card"><h4>Nutritionists</h4><p>{stats.nutritionists || 0}</p></div>
-        <div className="stat-card"><h4>Active Subscriptions</h4><p>{stats.active_subscriptions || 0}</p></div>
-        <div className="stat-card"><h4>Open Inquiries</h4><p>{stats.open_inquiries || 0}</p></div>
-        <div className="stat-card"><h4>Published Posts</h4><p>{stats.published_posts || 0}</p></div>
+    <div className="admin-dashboard dashboard-home-shell">
+      <section className="role-hero-card admin-hero-card">
+        <div>
+          <span className="role-hero-kicker">Platform control center</span>
+          <h3>Supervise accounts, subscriptions, content, and support messages.</h3>
+          <p>
+            The admin dashboard proves the platform is manageable, not just usable: users,
+            subscriptions, blogs, inquiries, and system notes all connect here.
+          </p>
+          <div className="role-hero-actions">
+            <button type="button" className="hero-action-primary" onClick={() => setActiveSection("users")}>
+              Manage Users
+            </button>
+            <button type="button" className="hero-action-secondary" onClick={() => setActiveSection("inquiries")}>
+              Handle Inquiries
+            </button>
+          </div>
+        </div>
+        <div className="role-hero-visual admin-console-card">
+          <span>Open Issues</span>
+          <strong>{stats.open_inquiries || 0}</strong>
+          <p>{stats.active_subscriptions || 0} active subscriptions monitored.</p>
+        </div>
+      </section>
+
+      <div className="dashboard-metric-strip">
+        <div className="metric-pill"><span>Total Users</span><strong>{stats.total_users || 0}</strong></div>
+        <div className="metric-pill"><span>Clients</span><strong>{stats.clients || 0}</strong></div>
+        <div className="metric-pill"><span>Nutritionists</span><strong>{stats.nutritionists || 0}</strong></div>
+        <div className="metric-pill"><span>Published Posts</span><strong>{stats.published_posts || 0}</strong></div>
       </div>
-      <div className="dashboard-summary-grid">
-        <div className="summary-card"><h3>Admin Role</h3><p>The admin supervises users, subscriptions, inquiries, content, consultations, and system access.</p></div>
-        <div className="summary-card"><h3>Django Admin</h3><p>For deep database edits, the built-in Django admin panel is still available.</p><a href={summary?.django_admin_url || "http://localhost:8000/admin/"} target="_blank" rel="noreferrer" className="inline-link">Open Django admin panel</a></div>
+
+      <div className="action-card-grid">
+        <button type="button" className="dashboard-action-card action-featured" onClick={() => setActiveSection("subscriptions")}>
+          <strong>Plans & Payments</strong>
+          <p>Edit normal/premium access and update simulated payment states.</p>
+        </button>
+        <button type="button" className="dashboard-action-card" onClick={() => setActiveSection("content")}>
+          <strong>Content Control</strong>
+          <p>Create public posts, keep drafts private, and remove unsuitable posts.</p>
+        </button>
+        <button type="button" className="dashboard-action-card" onClick={() => setActiveSection("activity")}>
+          <strong>Platform Activity</strong>
+          <p>Review recent consultations and nutrition plans from the system.</p>
+        </button>
+        <a href={summary?.django_admin_url || "http://localhost:8000/admin/"} target="_blank" rel="noreferrer" className="dashboard-action-card">
+          <strong>Django Admin</strong>
+          <p>Open the built-in admin panel for deeper database-level control.</p>
+        </a>
       </div>
     </div>
   );
@@ -275,7 +312,7 @@ function AdminDashboard() {
         {blogPosts.length === 0 ? <p className="empty-state">No posts yet.</p> : blogPosts.map((post) => (
           <div key={post.id} className="admin-row admin-row-wide">
             <div>{post.image_url && <img src={post.image_url} alt={post.title} className="admin-post-thumb" />}<strong>{post.title}</strong><span>{post.category} - {post.is_published ? "Published" : "Draft"}</span><small>{post.author_name}</small></div>
-            <div className="admin-actions"><button type="button" className="complete-btn" onClick={() => startEditingPost(post)}>Edit</button><button type="button" className="danger-btn" onClick={() => api.delete(`blog-posts/${post.id}/`).then(fetchAdminData)}>Delete</button></div>
+            <div className="admin-actions">{post.author_role !== "nutritionist" && <button type="button" className="complete-btn" onClick={() => startEditingPost(post)}>Edit</button>}<button type="button" className="danger-btn" onClick={() => api.delete(`blog-posts/${post.id}/`).then(fetchAdminData)}>Delete</button></div>
           </div>
         ))}
       </div>
@@ -324,4 +361,9 @@ function AdminDashboard() {
 }
 
 export default AdminDashboard;
+
+
+
+
+
 

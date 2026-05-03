@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
-from .models import BlogPost, Consultation, CustomUser, Inquiry, Plan, SubscriptionPlan, UserSubscription
+from .models import BlogPost, Consultation, CustomUser, Inquiry, MealLog, Plan, PlanTemplate, SubscriptionPlan, UserSubscription
 
 
 @admin.register(CustomUser)
@@ -122,3 +122,4 @@ class BlogPostAdmin(admin.ModelAdmin):
     list_display = ("title", "category", "is_published", "published_at")
     list_filter = ("category", "is_published", "published_at")
     search_fields = ("title", "summary", "content")
+

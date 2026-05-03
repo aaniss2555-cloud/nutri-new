@@ -1,4 +1,4 @@
-﻿from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field
 
 
 class HealthResponse(BaseModel):
@@ -33,4 +33,8 @@ class PredictionResponse(BaseModel):
     dataset_note: str
     detections: list[FoodDetection]
     total_estimated_calories_kcal: float | None = Field(default=None, ge=0)
+    annotated_image_base64: str | None = None
+    annotated_image_mime: str | None = None
+    preprocessing_notes: list[str] = Field(default_factory=list)
     notes: list[str]
+

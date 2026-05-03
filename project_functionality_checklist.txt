@@ -1,0 +1,53 @@
+﻿Nutrition Platform - Functionality Checklist
+==========================================
+
+Priority 1 - Important to verify or complete
+-------------------------------------------
+1. Admin deactivates account
+   - Deactivated user cannot log in anymore.
+   - Existing JWT access should stop working on protected API requests.
+   - User data is not deleted; it remains visible for admin/history.
+   - Active or pending subscriptions should be cancelled when a client account is deactivated.
+   - Scheduled consultations should be cancelled when the client or nutritionist account is deactivated.
+   - Reactivating the account should allow login again, but should not automatically restore cancelled subscriptions/consultations.
+
+2. Nutritionist rating/review
+   - Only clients who currently have, or previously had, a subscription/consultation can rate a nutritionist.
+   - Random visitors or unrelated clients cannot rate.
+   - A client should not spam multiple ratings for the same nutritionist unless we intentionally allow updates.
+
+3. Expired subscription behavior
+   - Decide what a client loses when subscription expires: AI tracking, consultation booking, plan access, or premium-only features.
+   - UI should show clear expired/active status.
+
+4. Nutrition plan lifecycle
+   - When a plan duration ends, keep it as history.
+   - Nutritionist can assign/change a new plan.
+   - Progress history should remain visible.
+
+Priority 2 - Good final polish
+------------------------------
+1. Client feedback/testimonials
+   - User submits testimonial.
+   - Admin/nutritionist approves before public display.
+
+2. Admin moderation
+   - Admin can delete/hide inappropriate blogs, inquiries, testimonials, and ratings.
+
+3. Meal log edit/delete
+   - User can remove wrong AI entries from progress.
+   - Useful when AI detects the wrong food.
+
+4. Low-confidence AI warning
+   - If confidence is low, show a warning like: Try another clearer photo.
+
+5. Better admin stats
+   - Total users, active subscriptions, consultations, blogs, inquiries.
+
+Priority 3 - Nice if time
+-------------------------
+1. Notification/toast improvements
+   - Plan assigned, consultation completed, account deactivated, blog saved.
+
+2. Audit/history notes
+   - Show who created/updated plans, blogs, or admin status changes.

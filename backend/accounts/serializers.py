@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import BlogPost, Consultation, CustomUser, Inquiry, Plan, SubscriptionPlan, UserSubscription
+from .models import BlogPost, Consultation, CustomUser, Inquiry, MealLog, Plan, PlanTemplate, SubscriptionPlan, UserSubscription
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -86,6 +86,7 @@ class PlanSerializer(serializers.ModelSerializer):
             "title",
             "description",
             "assigned_to",
+            "source_template",
             "assigned_to_email",
             "assigned_to_name",
             "created_by",
@@ -108,6 +109,52 @@ class PlanSerializer(serializers.ModelSerializer):
         full_name = f"{obj.created_by.first_name} {obj.created_by.last_name}".strip()
         return full_name or obj.created_by.email
 
+
+class PlanTemplateSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PlanTemplate
+        fields = [
+            "id",
+            "title",
+            "description",
+            "created_by",
+            "created_by_name",
+            "daily_calorie_target",
+            "duration_weeks",
+            "follow_up_notes",
+            "is_active",
+            "created_at",
+        ]
+        read_only_fields = ["created_by", "created_by_name", "created_at"]
+
+    def get_created_by_name(self, obj):
+        if not obj.created_by:
+            return None
+        full_name = f"{obj.created_by.first_name} {obj.created_by.last_name}".strip()
+        return full_name or obj.created_by.email
+
+
+class MealLogSerializer(serializers.ModelSerializer):
+    user_email = serializers.EmailField(source="user.email", read_only=True)
+
+    class Meta:
+        model = MealLog
+        fields = [
+            "id",
+            "user",
+            "user_email",
+            "meal_name",
+            "calories",
+            "image_url",
+            "ai_status",
+            "meal_date",
+            "meal_time",
+            "notes",
+            "created_at",
+        ]
+        read_only_fields = ["user", "user_email", "created_at"]
 
 class ProfileSerializer(serializers.ModelSerializer):
     active_subscription = serializers.SerializerMethodField()
@@ -359,6 +406,8 @@ class AdminUserSubscriptionSerializer(serializers.ModelSerializer):
 
 class BlogPostSerializer(serializers.ModelSerializer):
     author_name = serializers.SerializerMethodField()
+    author_role = serializers.SerializerMethodField()
+    author_is_admin = serializers.SerializerMethodField()
     image_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -373,11 +422,13 @@ class BlogPostSerializer(serializers.ModelSerializer):
             "content",
             "author",
             "author_name",
+            "author_role",
+            "author_is_admin",
             "is_published",
             "published_at",
             "created_at",
         ]
-        read_only_fields = ["author", "author_name", "image_url", "created_at"]
+        read_only_fields = ["author", "author_name", "author_role", "author_is_admin", "image_url", "created_at"]
 
     def get_image_url(self, obj):
         if not obj.image:
@@ -392,4 +443,21 @@ class BlogPostSerializer(serializers.ModelSerializer):
             return "Administrator"
         full_name = f"{obj.author.first_name} {obj.author.last_name}".strip()
         return full_name or obj.author.email
+
+    def get_author_role(self, obj):
+        if not obj.author:
+            return "admin"
+        if obj.author.is_staff or obj.author.is_superuser:
+            return "admin"
+        return obj.author.role
+
+    def get_author_is_admin(self, obj):
+        return bool(not obj.author or obj.author.is_staff or obj.author.is_superuser)
+
+
+
+
+
+
+
 

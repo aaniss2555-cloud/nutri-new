@@ -1,18 +1,19 @@
 import React, { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import About from "./About";
-import plateImage from "../Assets/Plate.png";
+import BrandIntro from "./BrandIntro";
+import heroIllustration from "./Assets/nutritionist-hero.png";
 
 const heroStats = [
-  { value: "2", label: "Subscription tiers" },
-  { value: "AI", label: "Meal estimation flow" },
+  { value: "AI", label: "Food recognition" },
   { value: "1:1", label: "Nutrition follow-up" },
+  { value: "2", label: "Access tiers" },
 ];
 
-const heroHighlights = [
-  "Personalized nutrition plans after consultation",
-  "AI-assisted calorie tracking from meal photos",
-  "One platform for clients, nutritionists, and subscriptions",
+const systemSteps = [
+  "Subscribe and book consultation",
+  "Nutritionist assigns plan",
+  "Track meals and progress",
 ];
 
 function Home() {
@@ -37,20 +38,19 @@ function Home() {
 
   return (
     <>
-      <main className="home">
-        <section className="hero-shell">
-          <div className="hero-copy">
-            <span className="hero-kicker">Personalized dietary care</span>
-            <h1>
-              Build healthier habits with guided nutrition and AI-powered meal
-              tracking.
-            </h1>
-            <p className="hero-lead">
-              Book consultations, follow structured plans, and explore a smarter
-              food-tracking experience designed for real daily life.
+      <BrandIntro />
+      <main className="home svmb-home">
+        <section className="svmb-hero">
+          <div className="svmb-hero-copy">
+            <span className="svmb-eyebrow">Personalized dietary assessment</span>
+            <h1>Nutrition care, made structured and measurable.</h1>
+            <p className="svmb-hero-lead">
+              A calm digital space where clients book consultations, receive
+              nutrition plans, and use AI-assisted meal tracking to understand
+              daily progress.
             </p>
 
-            <div className="hero-actions">
+            <div className="hero-actions svmb-actions">
               <button className="start-btn" onClick={() => navigate("/subscriptions")}>
                 Explore Subscriptions
               </button>
@@ -62,40 +62,32 @@ function Home() {
                 See How It Works
               </button>
             </div>
+          </div>
 
-            <div className="hero-highlight-list">
-              {heroHighlights.map((item) => (
-                <div key={item} className="hero-highlight-item">
-                  <span className="hero-highlight-dot"></span>
-                  <p>{item}</p>
+          <aside className="svmb-hero-panel" aria-label="Platform workflow preview">
+            <div className="svmb-panel-topline">
+              <span>SVMB Platform</span>
+              <strong>AI + professional guidance</strong>
+            </div>
+
+            <div className="svmb-plate-frame">
+              <img src={heroIllustration} alt="Nutritionist writing a personalized nutrition plan" />
+            </div>
+
+            <div className="svmb-system-steps">
+              {systemSteps.map((step, index) => (
+                <div key={step} className="svmb-system-step">
+                  <span>{String(index + 1).padStart(2, "0")}</span>
+                  <p>{step}</p>
                 </div>
               ))}
             </div>
-          </div>
-
-          <div className="hero-visual">
-            <div className="hero-orb hero-orb-one"></div>
-            <div className="hero-orb hero-orb-two"></div>
-
-            <div className="hero-image-card">
-              <div className="hero-badge hero-badge-top">
-                <strong>Live flow</strong>
-                <span>Upload meal, review estimate, keep tracking</span>
-              </div>
-
-              <img src={plateImage} alt="Healthy meal on a plate" />
-
-              <div className="hero-badge hero-badge-bottom">
-                <strong>Client + Nutritionist</strong>
-                <span>Consultation, plan creation, follow-up</span>
-              </div>
-            </div>
-          </div>
+          </aside>
         </section>
 
-        <section className="hero-stats-row">
+        <section className="hero-stats-row svmb-stats-row">
           {heroStats.map((stat) => (
-            <article key={stat.label} className="hero-stat-card">
+            <article key={stat.label} className="hero-stat-card svmb-stat-card">
               <strong>{stat.value}</strong>
               <span>{stat.label}</span>
             </article>
