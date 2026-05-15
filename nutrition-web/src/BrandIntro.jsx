@@ -17,7 +17,7 @@ function BrandIntro() {
     const timer = setTimeout(() => {
       sessionStorage.setItem("svmbIntroSeenV6", "true");
       setVisible(false);
-    }, 5900);
+    }, 4750);
 
     return () => clearTimeout(timer);
   }, [visible]);

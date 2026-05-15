@@ -1442,12 +1442,6 @@ function NutriDashboard() {
             >
               Profile
             </li>
-            <li
-              onClick={handleLogout}
-              style={{ color: "#e57373", marginTop: "auto" }}
-            >
-              Logout
-            </li>
           </ul>
         </aside>
 
@@ -1561,3 +1555,4 @@ function NutriDashboard() {
 }
 
 export default NutriDashboard;
+

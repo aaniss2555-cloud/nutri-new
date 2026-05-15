@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "./services/axiosInstance";
 
@@ -66,7 +66,6 @@ function SubscriptionPlans() {
 
   const featureLabels = {
     ai_calorie_tracking: "AI calorie tracking",
-    nutritionist_chat: "Nutritionist chat",
     zoom_consultation: "Zoom consultation",
     followup_support: "Follow-up support",
     priority_support: "Priority support",
@@ -76,11 +75,10 @@ function SubscriptionPlans() {
     <section className="subscription-page">
       <div className="subscription-hero">
         <p className="eyebrow">Subscriptions</p>
-        <h1>Choose The Access Layer First</h1>
+        <h1>Choose Your Subscription</h1>
         <p>
-          Subscriptions unlock access to consultations and platform services.
-          Nutrition plans are created afterward by the nutritionist based on the
-          client&apos;s case.
+          Select the plan that fits your goals, then book consultations, use
+          meal tracking, and receive nutrition guidance adapted to your needs.
         </p>
         {message && <p className="subscription-message">{message}</p>}
       </div>
@@ -177,3 +175,6 @@ function SubscriptionPlans() {
 }
 
 export default SubscriptionPlans;
+
+
+

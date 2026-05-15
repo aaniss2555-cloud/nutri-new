@@ -3,16 +3,28 @@ import { useNavigate } from "react-router-dom";
 import api from "./services/axiosInstance";
 import { logout } from "./services/Auth";
 import ProgressStrip from "./ProgressStrip";
+import mealExampleOne from "./Assets/meal-example-1.jpg";
+import mealExampleTwo from "./Assets/meal-example-2.jpg";
+import photoCameraIcon from "./Assets/photo-camera.svg";
 
+const PORTION_OPTIONS = [
+  { key: "small", label: "Small", multiplier: 0.6 },
+  { key: "medium", label: "Medium", multiplier: 1 },
+  { key: "large", label: "Large", multiplier: 1.5 },
+];
 
+const DEFAULT_PORTION_KEY = "medium";
 
 function UserDashboard() {
   const [activeSection, setActiveSection] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [preview, setPreview] = useState(null);
   const [pendingCalories, setPendingCalories] = useState(null);
+  const [selectedCropChoices, setSelectedCropChoices] = useState({});
+  const [selectedPortions, setSelectedPortions] = useState({});
   const [aiPrediction, setAiPrediction] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [showUploadGuide, setShowUploadGuide] = useState(false);
   const [profile, setProfile] = useState({});
   const [profileDraft, setProfileDraft] = useState({});
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -51,7 +63,13 @@ function UserDashboard() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const [profileRes, plansRes, consultationsRes, progressRes, mealLogsRes] = await Promise.all([
+        const [
+          profileRes,
+          plansRes,
+          consultationsRes,
+          progressRes,
+          mealLogsRes,
+        ] = await Promise.all([
           api.get("me/"),
           api.get("plans/"),
           api.get("consultations/"),
@@ -104,7 +122,11 @@ function UserDashboard() {
   const canUseAiTracking = Boolean(featureAccess.ai_calorie_tracking);
 
   useEffect(() => {
-    if (!loading && !hasDashboardAccess && !["dashboard", "profile"].includes(activeSection)) {
+    if (
+      !loading &&
+      !hasDashboardAccess &&
+      !["dashboard", "profile"].includes(activeSection)
+    ) {
       setActiveSection("dashboard");
     }
   }, [activeSection, hasDashboardAccess, loading]);
@@ -112,7 +134,10 @@ function UserDashboard() {
   const todayProgress = progressDays[progressDays.length - 1] || null;
   const todayCalories = todayProgress?.calories || 0;
   const weeklyAverage = progressDays.length
-    ? Math.round(progressDays.reduce((sum, day) => sum + (day.calories || 0), 0) / progressDays.length)
+    ? Math.round(
+        progressDays.reduce((sum, day) => sum + (day.calories || 0), 0) /
+          progressDays.length,
+      )
     : 0;
 
   const refreshProgress = async () => {
@@ -146,6 +171,114 @@ function UserDashboard() {
     }
   };
 
+  const openMealPicker = () => {
+    setShowUploadGuide(false);
+    uploadInputRef.current?.click();
+  };
+
+  const tryAnotherMeal = () => {
+    setPreview(null);
+    setPendingCalories(null);
+    setSelectedCropChoices({});
+    setSelectedPortions({});
+    setAiPrediction(null);
+    resetUploadInput();
+    setShowUploadGuide(true);
+  };
+  const getCandidateOptions = (detection) => {
+    const candidates = detection.classification_candidates || [];
+    if (candidates.length > 0) {
+      return candidates.slice(0, 5);
+    }
+
+    return [
+      {
+        label: detection.label,
+        confidence: detection.confidence,
+        estimated_calories_kcal: detection.estimated_calories_kcal,
+      },
+    ];
+  };
+
+  const getGroupedFoodChoices = (choices = selectedCropChoices) => {
+    const grouped = {};
+
+    Object.values(choices).forEach((choice) => {
+      if (!choice || choice.ignore) {
+        return;
+      }
+
+      const label = choice.label?.trim();
+      if (!label) {
+        return;
+      }
+
+      const key = label.toLowerCase();
+      const currentCalories = Number(choice.estimated_calories_kcal) || 0;
+      const existing = grouped[key];
+
+      if (!existing || currentCalories > existing.baseCalories) {
+        grouped[key] = {
+          key,
+          label,
+          baseCalories: currentCalories,
+          basePortion: Number(choice.estimated_portion_g) || null,
+          nutritionSource: choice.nutrition_source || null,
+        };
+      }
+    });
+
+    return Object.values(grouped);
+  };
+
+  const withPortionDefaults = (choices, portions = selectedPortions) => {
+    const next = {};
+    getGroupedFoodChoices(choices).forEach((food) => {
+      next[food.key] = portions[food.key] || DEFAULT_PORTION_KEY;
+    });
+    return next;
+  };
+
+  const calculateSelectedCalories = (choices, portions = selectedPortions) => {
+    const groups = getGroupedFoodChoices(choices);
+
+    if (!groups.length) {
+      return null;
+    }
+
+    const total = groups.reduce((sum, food) => {
+      const portionKey = portions[food.key] || DEFAULT_PORTION_KEY;
+      const option = PORTION_OPTIONS.find((item) => item.key === portionKey) || PORTION_OPTIONS[1];
+      return sum + food.baseCalories * option.multiplier;
+    }, 0);
+
+    return Math.round(total * 10) / 10;
+  };
+
+  const areCropChoicesComplete = (choices = selectedCropChoices) => {
+    const detections = aiPrediction?.detections || [];
+    return detections.length > 0 && detections.every((_, index) => choices[index]);
+  };
+
+  const selectCropChoice = (cropIndex, candidate) => {
+    setSelectedCropChoices((current) => {
+      const next = { ...current, [cropIndex]: candidate };
+      const nextPortions = withPortionDefaults(next);
+      setSelectedPortions(nextPortions);
+      setPendingCalories(areCropChoicesComplete(next) ? calculateSelectedCalories(next, nextPortions) : null);
+      return next;
+    });
+  };
+
+  const selectPortionChoice = (foodKey, portionKey) => {
+    setSelectedPortions((current) => {
+      const next = { ...current, [foodKey]: portionKey };
+      setPendingCalories(
+        areCropChoicesComplete() ? calculateSelectedCalories(selectedCropChoices, next) : null,
+      );
+      return next;
+    });
+  };
   const handleUpload = async (file) => {
     if (!file) {
       resetUploadInput();
@@ -169,6 +302,8 @@ function UserDashboard() {
     setAiLoading(true);
     setAiPrediction(null);
     setPendingCalories(null);
+    setSelectedCropChoices({});
+    setSelectedPortions({});
 
     const reader = new FileReader();
     reader.onloadend = () => setPreview(reader.result);
@@ -183,22 +318,21 @@ function UserDashboard() {
       });
 
       const prediction = response.data;
-      const firstDetection = prediction.detections?.[0];
-      const estimatedCalories =
-        prediction.total_estimated_calories_kcal ??
-        firstDetection?.estimated_calories_kcal ??
-        null;
 
       setAiPrediction({
         ...prediction,
         status: prediction.status,
       });
-      setPendingCalories(estimatedCalories);
+      setSelectedCropChoices({});
+      setSelectedPortions({});
+      setPendingCalories(null);
       showToast("AI prediction received.");
     } catch (err) {
       console.error("Failed to predict meal image", err);
       setAiPrediction(null);
       setPendingCalories(null);
+      setSelectedCropChoices({});
+      setSelectedPortions({});
       showToast(
         err.response?.data?.detail ||
           "Failed to reach the AI service. Make sure it is running.",
@@ -214,13 +348,28 @@ function UserDashboard() {
       return;
     }
 
-    const caloriesToAdd = pendingCalories ?? 0;
+    const detections = aiPrediction.detections || [];
+    if (detections.length > 0 && !areCropChoicesComplete()) {
+      showToast("Select the correct label for each detected food first.");
+      return;
+    }
+
+    const groupedChoices = getGroupedFoodChoices();
+    if (!groupedChoices.length) {
+      showToast("No food was selected. Try another photo or choose at least one food.");
+      return;
+    }
+
+    const caloriesToAdd = calculateSelectedCalories(selectedCropChoices, selectedPortions) ?? 0;
+    const mealName = groupedChoices
+      .map((food) => `${food.label} (${selectedPortions[food.key] || DEFAULT_PORTION_KEY})`)
+      .join(", ");
 
     try {
       await api.post("meal-logs/", {
-        meal_name: aiPrediction.detections?.[0]?.label || "Meal image",
+        meal_name: mealName,
         calories: caloriesToAdd,
-        image_url: "",
+        image_url: preview || "",
         ai_status: aiPrediction.status || "saved",
       });
       await refreshProgress();
@@ -231,11 +380,16 @@ function UserDashboard() {
       );
     } catch (error) {
       console.error("Failed to save meal log", error);
-      const errorMessage = error.response?.data?.detail || JSON.stringify(error.response?.data || {}) || "Failed to save meal log.";
+      const errorMessage =
+        error.response?.data?.detail ||
+        JSON.stringify(error.response?.data || {}) ||
+        "Failed to save meal log.";
       showToast(errorMessage);
     }
 
     setPendingCalories(null);
+    setSelectedCropChoices({});
+    setSelectedPortions({});
     setAiPrediction(null);
     setPreview(null);
     resetUploadInput();
@@ -293,14 +447,23 @@ function UserDashboard() {
               <span className="role-hero-kicker">Subscription required</span>
               <h3>Choose a subscription to unlock your nutrition workspace.</h3>
               <p>
-                Your profile stays available, but AI tracking, consultations, nutrition plans,
-                and progress tools open after you subscribe to Normal or Premium access.
+                Your profile stays available, but AI tracking, consultations,
+                nutrition plans, and progress tools open after you subscribe to
+                Normal or Premium access.
               </p>
               <div className="role-hero-actions">
-                <button type="button" className="hero-action-primary" onClick={() => navigate("/subscriptions")}>
+                <button
+                  type="button"
+                  className="hero-action-primary"
+                  onClick={() => navigate("/subscriptions")}
+                >
                   View Subscriptions
                 </button>
-                <button type="button" className="hero-action-secondary" onClick={() => setActiveSection("profile")}>
+                <button
+                  type="button"
+                  className="hero-action-secondary"
+                  onClick={() => setActiveSection("profile")}
+                >
                   Complete Profile
                 </button>
               </div>
@@ -316,70 +479,114 @@ function UserDashboard() {
     }
 
     return (
-    <div className="overview dashboard-home-shell">
-      <section className="role-hero-card client-hero-card">
-        <div>
-          <span className="role-hero-kicker">Today&apos;s focus</span>
-          <h3>Track your meals, follow your plan, and stay close to your nutritionist.</h3>
-          <p>
-            The AI meal camera is the main feature of the platform. Start there when you eat,
-            then use your progress and plan cards to understand how the day is going.
-          </p>
-          <div className="role-hero-actions">
-            <button type="button" className="hero-action-primary" onClick={() => setActiveSection("upload")}>
-              Open AI Camera
-            </button>
-            <button type="button" className="hero-action-secondary" onClick={() => setActiveSection("nutrition-plan")}>
-              View My Plan
-            </button>
+      <div className="overview dashboard-home-shell">
+        <section className="role-hero-card client-hero-card">
+          <div>
+            <span className="role-hero-kicker">Today&apos;s focus</span>
+            <h3>
+              Track your meals, follow your plan, and stay close to your
+              nutritionist.
+            </h3>
+            <p>
+              The AI meal camera is the main feature of the platform. Start
+              there when you eat, then use your progress and plan cards to
+              understand how the day is going.
+            </p>
+            <div className="role-hero-actions">
+              <button
+                type="button"
+                className="hero-action-primary"
+                onClick={() => setActiveSection("upload")}
+              >
+                Open AI Camera
+              </button>
+              <button
+                type="button"
+                className="hero-action-secondary"
+                onClick={() => setActiveSection("nutrition-plan")}
+              >
+                View My Plan
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <div className="dashboard-metric-strip">
+          <div className="metric-pill">
+            <span>Subscription</span>
+            <strong>
+              {activeSubscription?.subscription_plan?.name || "No subscription"}
+            </strong>
+          </div>
+          <div className="metric-pill">
+            <span>Nutrition Plan</span>
+            <strong>
+              {currentPlan ? currentPlan.title : "No plan assigned"}
+            </strong>
+          </div>
+          <div className="metric-pill">
+            <span>Today</span>
+            <strong>{todayCalories} kcal</strong>
+          </div>
+          <div className="metric-pill">
+            <span>Weekly Avg</span>
+            <strong>{weeklyAverage} kcal/day</strong>
           </div>
         </div>
-      </section>
 
-      <div className="dashboard-metric-strip">
-        <div className="metric-pill">
-          <span>Subscription</span>
-          <strong>{activeSubscription?.subscription_plan?.name || "No subscription"}</strong>
+        <div className="action-card-grid">
+          <button
+            type="button"
+            className="dashboard-action-card action-featured"
+            onClick={() => setActiveSection("upload")}
+          >
+            <strong>Scan A Meal</strong>
+            <p>
+              Upload food, get AI detections, and save calories into your daily
+              history.
+            </p>
+          </button>
+          <button
+            type="button"
+            className="dashboard-action-card"
+            onClick={() => setActiveSection("nutrition-plan")}
+          >
+            <strong>Follow My Plan</strong>
+            <p>
+              {currentPlan
+                ? "Review targets, notes, and plan progress."
+                : "Your assigned nutrition plan will appear here."}
+            </p>
+          </button>
+          <button
+            type="button"
+            className="dashboard-action-card"
+            onClick={() => setActiveSection("consultations")}
+          >
+            <strong>Zoom Consultations</strong>
+            <p>
+              See scheduled meetings and join when your nutritionist creates a
+              link.
+            </p>
+          </button>
+          <button
+            type="button"
+            className="dashboard-action-card"
+            onClick={() => setActiveSection("subscription")}
+          >
+            <strong>Access Status</strong>
+            <p>
+              {subscriptionTier} tier - {subscriptionStatusLabel}
+            </p>
+          </button>
         </div>
-        <div className="metric-pill">
-          <span>Nutrition Plan</span>
-          <strong>{currentPlan ? currentPlan.title : "No plan assigned"}</strong>
-        </div>
-        <div className="metric-pill">
-          <span>Today</span>
-          <strong>{todayCalories} kcal</strong>
-        </div>
-        <div className="metric-pill">
-          <span>Weekly Avg</span>
-          <strong>{weeklyAverage} kcal/day</strong>
-        </div>
+
+        <ProgressStrip
+          days={progressDays}
+          title="Quick Progress Preview"
+          subtitle="A short look at your meal history. Open AI Tracking or My Nutrition Plan for filters."
+        />
       </div>
-
-      <div className="action-card-grid">
-        <button type="button" className="dashboard-action-card action-featured" onClick={() => setActiveSection("upload")}>
-          <strong>Scan A Meal</strong>
-          <p>Upload food, get AI detections, and save calories into your daily history.</p>
-        </button>
-        <button type="button" className="dashboard-action-card" onClick={() => setActiveSection("nutrition-plan")}>
-          <strong>Follow My Plan</strong>
-          <p>{currentPlan ? "Review targets, notes, and plan progress." : "Your assigned nutrition plan will appear here."}</p>
-        </button>
-        <button type="button" className="dashboard-action-card" onClick={() => setActiveSection("consultations")}>
-          <strong>Zoom Consultations</strong>
-          <p>See scheduled meetings and join when your nutritionist creates a link.</p>
-        </button>
-        <button type="button" className="dashboard-action-card" onClick={() => setActiveSection("subscription")}>
-          <strong>Access Status</strong>
-          <p>{subscriptionTier} tier - {subscriptionStatusLabel}</p>
-        </button>
-      </div>
-
-      <ProgressStrip
-        days={progressDays}
-        title="Quick Progress Preview"
-        subtitle="A short look at your meal history. Open AI Tracking or My Nutrition Plan for filters."
-      />
-    </div>
     );
   };
 
@@ -525,7 +732,6 @@ function UserDashboard() {
               </div>
             </aside>
           </article>
-
           <ProgressStrip
             days={progressDays}
             title="Calorie Progress"
@@ -537,7 +743,9 @@ function UserDashboard() {
                 onChange={async (event) => {
                   const nextRange = event.target.value;
                   setProgressRange(nextRange);
-                  const response = await api.get(`progress/?range=${nextRange}`);
+                  const response = await api.get(
+                    `progress/?range=${nextRange}`,
+                  );
                   setProgressDays(response.data.days || []);
                 }}
               >
@@ -560,13 +768,10 @@ function UserDashboard() {
   );
 
   const renderUpload = () => (
-    <div className="upload">
-      <div className="section-heading">
-        <h3>AI Calorie Tracking</h3>
-        <p>
-          Upload a meal photo to estimate calories. This feature depends on your
-          subscription tier.
-        </p>
+    <div className="upload ai-workspace">
+      <div className="section-heading ai-workspace-heading">
+        <span className="eyebrow">AI meal tracking</span>
+        <h3>Scan a meal and save your progress</h3>
       </div>
 
       {!canUseAiTracking ? (
@@ -578,110 +783,324 @@ function UserDashboard() {
         </div>
       ) : (
         <>
-          <div className="upload-area">
+          <div className="ai-scan-panel">
+            <div className="ai-scan-copy">
+              <span className="eyebrow">AI meal scan</span>
+              <h4>Add today&apos;s meal</h4>
+              <p>
+                Use one focused plate photo with good lighting. After the scan,
+                confirm the result to add it to your daily calorie history.
+              </p>
+            </div>
             <input
               ref={uploadInputRef}
               type="file"
-              id="mealUpload"
               accept="image/*"
               onChange={(e) => handleUpload(e.target.files[0])}
               className="upload-input-hidden"
             />
-            <div className="upload-area-copy">
-              <span>AI meal scan</span>
-              <h4>Add today&apos;s meal</h4>
-              <p>Select a clear food photo. The AI service will detect food items, then you can confirm the result into your progress.</p>
-            </div>
-            <label htmlFor="mealUpload" className="upload-btn">
+            <button
+              type="button"
+              className="upload-btn ai-upload-main-btn"
+              onClick={() => setShowUploadGuide(true)}
+            >
+              <img
+                className="camera-icon"
+                src={photoCameraIcon}
+                alt=""
+                aria-hidden="true"
+              />
               Select Meal Photo
-            </label>
+            </button>
           </div>
 
-          {preview && (
-            <div className="meal-preview">
-              <img src={aiPrediction?.annotated_image_base64 ? `data:${aiPrediction.annotated_image_mime || "image/jpeg"};base64,${aiPrediction.annotated_image_base64}` : preview} alt="Meal preview" />
-
-              {aiLoading && <p>Sending image to AI service...</p>}
-
-              {aiPrediction && (
-                <div className="ai-result-card">
-                  <div className="ai-result-header">
-                    <span>AI meal result</span>
-                    <strong>{aiPrediction.detections?.length ? "Food detected" : "No food name found"}</strong>
-                  </div>
-                  <p>
-                    Estimated Calories: {pendingCalories ?? "Not available yet"}
-                    {pendingCalories ? " kcal" : ""}
-                  </p>
-
-                  {aiPrediction.detections?.length > 0 ? (
-                    <div className="ai-detection-list">
-                      {aiPrediction.detections.map((item, index) => (
-                        <div
-                          key={`${item.label}-${index}`}
-                          className="ai-detection-item"
-                        >
-                          <span>{item.label}</span>
-                          <strong>{Math.round(item.confidence * 100)}%</strong>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="ai-note">
-                      The model did not recognize a food name in this image yet, so calories are not available for this result.
-                    </p>
-                  )}
-
-                  <button className="confirm-btn" onClick={confirmUpload}>
-                    Confirm Result
-                  </button>
+          {showUploadGuide && (
+            <div
+              className="upload-guide-overlay"
+              role="dialog"
+              aria-modal="true"
+            >
+              <div className="upload-guide-modal">
+                <button
+                  type="button"
+                  className="upload-guide-close"
+                  onClick={() => setShowUploadGuide(false)}
+                  aria-label="Close upload guide"
+                >
+                  x
+                </button>
+                <span className="eyebrow">Before you scan</span>
+                <h4>Use a photo the AI can actually read</h4>
+                <p>
+                  Keep the meal visible, avoid heavy blur, and use a simple top
+                  or angled view when possible.
+                </p>
+                <div className="upload-guide-grid">
+                  <img src={mealExampleOne} alt="Example meal photo" />
+                  <img src={mealExampleTwo} alt="Example meal photo" />
                 </div>
-              )}
+                <ul className="upload-guide-rules">
+                  <li>Show the full plate or main food area.</li>
+                  <li>Use bright lighting and avoid shaky photos.</li>
+                  <li>Keep objects like hands or packaging out of the way.</li>
+                </ul>
+                <button
+                  type="button"
+                  className="confirm-btn"
+                  onClick={openMealPicker}
+                >
+                  Choose Photo
+                </button>
+              </div>
             </div>
           )}
 
-          <ProgressStrip
-            days={progressDays}
-            title="Saved Meal Progress"
-            subtitle="This updates from confirmed meal logs when the AI result can be matched to the nutrition reference."
-            actions={
-              <select
-                className="progress-range-select"
-                value={progressRange}
-                onChange={async (event) => {
-                  const nextRange = event.target.value;
-                  setProgressRange(nextRange);
-                  const response = await api.get(`progress/?range=${nextRange}`);
-                  setProgressDays(response.data.days || []);
-                }}
-              >
-                <option value="plan">Current plan</option>
-                <option value="7">Last 7 days</option>
-                <option value="14">Last 14 days</option>
-                <option value="30">Last 30 days</option>
-                <option value="all">All logs</option>
-              </select>
-            }
-          />
-          <div className="plan-history">
-            <div className="section-heading">
-              <h5>Recent Meal Estimates</h5>
-              <p>Your latest uploads appear here.</p>
-            </div>
-
-            {mealHistory.length === 0 ? (
-              <p className="empty-state">No meals uploaded yet.</p>
-            ) : (
-              <div className="meal-history">
-                {mealHistory.map((meal) => (
-                  <div key={meal.id} className="meal-item">
-                    {meal.image ? <img src={meal.image} alt="Meal" /> : <div className="meal-placeholder">Meal</div>}
-                    <strong>{meal.calories} kcal</strong>
-                    <span>{meal.day}</span>
+          {(preview || aiLoading || aiPrediction) && (
+            <div
+              className="upload-guide-overlay ai-result-overlay"
+              role="dialog"
+              aria-modal="true"
+            >
+              <div className="upload-guide-modal ai-result-modal">
+                <button
+                  type="button"
+                  className="upload-guide-close"
+                  onClick={tryAnotherMeal}
+                  aria-label="Close result"
+                >
+                  x
+                </button>
+                <div className="ai-result-modal-grid">
+                  <div className="ai-preview-frame ai-result-modal-preview">
+                    {preview ? (
+                      <img
+                        src={
+                          aiPrediction?.annotated_image_base64
+                            ? `data:${aiPrediction.annotated_image_mime || "image/jpeg"};base64,${aiPrediction.annotated_image_base64}`
+                            : preview
+                        }
+                        alt="Meal preview"
+                      />
+                    ) : (
+                      <div className="meal-placeholder">Meal</div>
+                    )}
                   </div>
-                ))}
+
+                  <div className="ai-result-card ai-result-focus ai-result-modal-content">
+                    {aiLoading ? (
+                      <div className="ai-loading-state">
+                        <span className="eyebrow">Scanning</span>
+                        <h4>Sending image to AI service...</h4>
+                        <p>
+                          The model is checking the meal and preparing
+                          detections.
+                        </p>
+                      </div>
+                    ) : aiPrediction ? (
+                      <>
+                        <div className="ai-result-header">
+                          <span>AI meal result</span>
+                          <strong>
+                            {aiPrediction.detections?.length
+                              ? "Food detected"
+                              : "No food name found"}
+                          </strong>
+                        </div>
+                        <div className="ai-calorie-hero">
+                          <span>Estimated calories</span>
+                          <strong>{pendingCalories ?? "--"}</strong>
+                          <small>
+                            {pendingCalories ? "kcal after selection" : "Select labels first"}
+                          </small>
+                        </div>
+
+                        {aiPrediction.detections?.length > 0 ? (
+                          <div className="ai-crop-review-list">
+                            <p className="ai-note">
+                              Review each detected crop, choose a food name, or ignore a wrong box. Same foods are grouped before calories are calculated.
+                            </p>
+                            {aiPrediction.detections.map((item, index) => (
+                              <div
+                                key={`${item.label}-${index}`}
+                                className="ai-crop-review-item"
+                              >
+                                <div className="ai-crop-review-heading">
+                                  <strong>Food {index + 1}</strong>
+                                  <span>
+                                    box {Math.round((item.segmentation_confidence || item.confidence) * 100)}%
+                                  </span>
+                                </div>
+                                <div className="ai-candidate-options">
+                                  {getCandidateOptions(item).map((candidate) => {
+                                    const selected =
+                                      !selectedCropChoices[index]?.ignore &&
+                                      selectedCropChoices[index]?.label === candidate.label;
+                                    return (
+                                      <button
+                                        type="button"
+                                        key={`${candidate.label}-${candidate.confidence}`}
+                                        className={`ai-candidate-option ${selected ? "selected" : ""}`}
+                                        onClick={() => selectCropChoice(index, candidate)}
+                                      >
+                                        <span>{candidate.label}</span>
+                                        <strong>{Math.round(candidate.confidence * 100)}%</strong>
+                                        <small>
+                                          {candidate.estimated_calories_kcal
+                                            ? `${candidate.estimated_calories_kcal} kcal`
+                                            : "Calories not found"}
+                                        </small>
+                                      </button>
+                                    );
+                                  })}
+                                  <button
+                                    type="button"
+                                    className={`ai-candidate-option ignore ${
+                                      selectedCropChoices[index]?.ignore ? "selected" : ""
+                                    }`}
+                                    onClick={() =>
+                                      selectCropChoice(index, {
+                                        label: "Ignore",
+                                        confidence: 0,
+                                        ignore: true,
+                                      })
+                                    }
+                                  >
+                                    <span>Ignore</span>
+                                    <strong>Wrong box</strong>
+                                    <small>Do not count</small>
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+
+                            {areCropChoicesComplete() && getGroupedFoodChoices().length > 0 && (
+                              <div className="ai-portion-review">
+                                <div className="ai-portion-review-heading">
+                                  <strong>Confirm portions</strong>
+                                  <span>Same foods are counted once</span>
+                                </div>
+                                {getGroupedFoodChoices().map((food) => (
+                                  <div key={food.key} className="ai-portion-row">
+                                    <div>
+                                      <strong>{food.label}</strong>
+                                      <small>
+                                        {food.basePortion
+                                          ? `Base portion ${food.basePortion}g`
+                                          : "Default portion"}
+                                      </small>
+                                    </div>
+                                    <div className="ai-portion-options">
+                                      {PORTION_OPTIONS.map((option) => {
+                                        const selectedPortion =
+                                          (selectedPortions[food.key] || DEFAULT_PORTION_KEY) === option.key;
+                                        return (
+                                          <button
+                                            type="button"
+                                            key={option.key}
+                                            className={selectedPortion ? "selected" : ""}
+                                            onClick={() => selectPortionChoice(food.key, option.key)}
+                                          >
+                                            {option.label}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="ai-note">
+                            The model did not recognize a food name in this
+                            image yet. Try a clearer photo with the meal closer
+                            to the camera.
+                          </p>
+                        )}
+
+                        <div className="ai-result-actions">
+                          <button
+                            className="confirm-btn"
+                            onClick={confirmUpload}
+                            disabled={
+                              aiPrediction.detections?.length > 0 &&
+                              !areCropChoicesComplete()
+                            }
+                          >
+                            Confirm Result
+                          </button>
+                          <button
+                            className="try-again-btn"
+                            onClick={tryAnotherMeal}
+                          >
+                            Try Again
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="ai-loading-state">
+                        <span className="eyebrow">Ready</span>
+                        <h4>Your meal preview will appear here.</h4>
+                        <p>Select a photo to start the scan.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            )}
+            </div>
+          )}
+          <div className="ai-progress-log-grid">
+            <ProgressStrip
+              days={progressDays}
+              title="Saved Meal Progress"
+              subtitle="This updates from confirmed meal logs when the AI result can be matched to the nutrition reference."
+              actions={
+                <select
+                  className="progress-range-select"
+                  value={progressRange}
+                  onChange={async (event) => {
+                    const nextRange = event.target.value;
+                    setProgressRange(nextRange);
+                    const response = await api.get(
+                      `progress/?range=${nextRange}`,
+                    );
+                    setProgressDays(response.data.days || []);
+                  }}
+                >
+                  <option value="plan">Current plan</option>
+                  <option value="7">Last 7 days</option>
+                  <option value="14">Last 14 days</option>
+                  <option value="30">Last 30 days</option>
+                  <option value="all">All logs</option>
+                </select>
+              }
+            />
+            <div className="plan-history meal-history-panel">
+              <div className="section-heading">
+                <h5>Recent Meal Estimates</h5>
+                <p>Confirmed meals stay in one horizontal history line.</p>
+              </div>
+
+              {mealHistory.length === 0 ? (
+                <p className="empty-state">No meals uploaded yet.</p>
+              ) : (
+                <div className="meal-history meal-history-row">
+                  {mealHistory.map((meal) => (
+                    <div key={meal.id} className="meal-item meal-history-card">
+                      {meal.image ? (
+                        <img src={meal.image} alt={meal.label || "Meal"} />
+                      ) : (
+                        <div className="meal-placeholder">Meal</div>
+                      )}
+                      <div>
+                        <strong>{meal.calories} kcal</strong>
+                        <span>{meal.day}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </>
       )}
@@ -697,8 +1116,8 @@ function UserDashboard() {
 
       {consultations.length === 0 ? (
         <p className="empty-state">
-          No consultation has been scheduled yet. After your nutritionist creates one,
-          the Zoom link will show here.
+          No consultation has been scheduled yet. After your nutritionist
+          creates one, the Zoom link will show here.
         </p>
       ) : (
         <div className="consultation-list">
@@ -706,17 +1125,30 @@ function UserDashboard() {
             <div key={consultation.id} className="consultation-card">
               <div>
                 <h5>{consultation.topic || "Nutrition consultation"}</h5>
-                <p>{consultation.nutritionist_name || consultation.nutritionist_email || "Nutritionist"}</p>
+                <p>
+                  {consultation.nutritionist_name ||
+                    consultation.nutritionist_email ||
+                    "Nutritionist"}
+                </p>
                 <span>{formatDateTime(consultation.scheduled_at)}</span>
               </div>
               <div className="consultation-actions">
                 <strong>{consultation.status}</strong>
-                {consultation.zoom_join_url && consultation.status === "scheduled" ? (
-                  <a href={consultation.zoom_join_url} target="_blank" rel="noreferrer">
+                {consultation.zoom_join_url &&
+                consultation.status === "scheduled" ? (
+                  <a
+                    href={consultation.zoom_join_url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     Join Zoom
                   </a>
                 ) : (
-                  <span>{consultation.status === "completed" ? "Completed" : "Link pending"}</span>
+                  <span>
+                    {consultation.status === "completed"
+                      ? "Completed"
+                      : "Link pending"}
+                  </span>
                 )}
               </div>
             </div>
@@ -798,7 +1230,9 @@ function UserDashboard() {
                 <input
                   type="text"
                   value={profileDraft.allergies || ""}
-                  onChange={(e) => updateProfileDraft("allergies", e.target.value)}
+                  onChange={(e) =>
+                    updateProfileDraft("allergies", e.target.value)
+                  }
                 />
               ) : (
                 <strong>{displayValue(profile.allergies)}</strong>
@@ -847,7 +1281,10 @@ function UserDashboard() {
       return <p>Loading dashboard...</p>;
     }
 
-    if (!hasDashboardAccess && !["dashboard", "profile"].includes(activeSection)) {
+    if (
+      !hasDashboardAccess &&
+      !["dashboard", "profile"].includes(activeSection)
+    ) {
       return renderDashboard();
     }
 
@@ -913,12 +1350,6 @@ function UserDashboard() {
           >
             Profile
           </li>
-          <li
-            onClick={handleLogout}
-            style={{ color: "#e57373", marginTop: "auto" }}
-          >
-            Logout
-          </li>
         </ul>
       </aside>
 
@@ -952,24 +1383,4 @@ function UserDashboard() {
 }
 
 export default UserDashboard;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

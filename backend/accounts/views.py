@@ -718,7 +718,7 @@ class ProgressSummaryView(APIView):
         days = []
         for offset in range(days_count):
             current_date = start_date + timedelta(days=offset)
-            calories = int(totals.get(current_date, 0))
+            calories = round(float(totals.get(current_date, 0)), 1)
             status_label = "neutral"
 
             if daily_goal and calories > 0:

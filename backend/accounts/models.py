@@ -1,4 +1,5 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
 
@@ -204,7 +205,7 @@ class MealLog(models.Model):
         limit_choices_to={"role": "client"},
     )
     meal_name = models.CharField(max_length=120, blank=True)
-    calories = models.PositiveIntegerField(default=0)
+    calories = models.FloatField(default=0, validators=[MinValueValidator(0)])
     image_url = models.TextField(blank=True)
     ai_status = models.CharField(max_length=60, blank=True)
     meal_date = models.DateField(default=timezone.localdate)

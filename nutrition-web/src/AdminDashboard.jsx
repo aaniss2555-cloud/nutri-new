@@ -353,7 +353,7 @@ function AdminDashboard() {
 
   return (
     <div className="dashboard-container">
-      <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}><ul><li className={activeSection === "overview" ? "active" : ""} onClick={() => setActiveSection("overview")}>Overview</li><li className={activeSection === "users" ? "active" : ""} onClick={() => setActiveSection("users")}>Users</li><li className={activeSection === "nutritionists" ? "active" : ""} onClick={() => setActiveSection("nutritionists")}>Nutritionists</li><li className={activeSection === "subscriptions" ? "active" : ""} onClick={() => setActiveSection("subscriptions")}>Plans & Payment</li><li className={activeSection === "content" ? "active" : ""} onClick={() => setActiveSection("content")}>Content</li><li className={activeSection === "activity" ? "active" : ""} onClick={() => setActiveSection("activity")}>Activity</li><li className={activeSection === "inquiries" ? "active" : ""} onClick={() => setActiveSection("inquiries")}>Inquiries</li><li className={activeSection === "system" ? "active" : ""} onClick={() => setActiveSection("system")}>System</li><li onClick={handleLogout} style={{ color: "#e57373", marginTop: "auto" }}>Logout</li></ul></aside>
+      <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}><ul><li className={activeSection === "overview" ? "active" : ""} onClick={() => setActiveSection("overview")}>Overview</li><li className={activeSection === "users" ? "active" : ""} onClick={() => setActiveSection("users")}>Users</li><li className={activeSection === "nutritionists" ? "active" : ""} onClick={() => setActiveSection("nutritionists")}>Nutritionists</li><li className={activeSection === "subscriptions" ? "active" : ""} onClick={() => setActiveSection("subscriptions")}>Plans & Payment</li><li className={activeSection === "content" ? "active" : ""} onClick={() => setActiveSection("content")}>Content</li><li className={activeSection === "activity" ? "active" : ""} onClick={() => setActiveSection("activity")}>Activity</li><li className={activeSection === "inquiries" ? "active" : ""} onClick={() => setActiveSection("inquiries")}>Inquiries</li><li className={activeSection === "system" ? "active" : ""} onClick={() => setActiveSection("system")}>System</li></ul></aside>
       <div className="dashboard-main"><header className="dashboard-header"><button className="menu-btn" onClick={() => setSidebarOpen((prev) => !prev)} aria-label="Open menu"><span></span><span></span><span></span></button><div className="dashboard-header-copy"><span className="dashboard-header-kicker">Administrator control center</span><h2>Admin Dashboard</h2></div></header><section className={`dashboard-content section-${activeSection}`}>{renderContent()}</section></div>
       {toast && <div className="toast">{toast}</div>}
     </div>
@@ -361,6 +361,7 @@ function AdminDashboard() {
 }
 
 export default AdminDashboard;
+
 
 
 
