@@ -248,7 +248,9 @@ function UserDashboard() {
 
     const total = groups.reduce((sum, food) => {
       const portionKey = portions[food.key] || DEFAULT_PORTION_KEY;
-      const option = PORTION_OPTIONS.find((item) => item.key === portionKey) || PORTION_OPTIONS[1];
+      const option =
+        PORTION_OPTIONS.find((item) => item.key === portionKey) ||
+        PORTION_OPTIONS[1];
       return sum + food.baseCalories * option.multiplier;
     }, 0);
 
@@ -257,7 +259,9 @@ function UserDashboard() {
 
   const areCropChoicesComplete = (choices = selectedCropChoices) => {
     const detections = aiPrediction?.detections || [];
-    return detections.length > 0 && detections.every((_, index) => choices[index]);
+    return (
+      detections.length > 0 && detections.every((_, index) => choices[index])
+    );
   };
 
   const selectCropChoice = (cropIndex, candidate) => {
@@ -265,7 +269,11 @@ function UserDashboard() {
       const next = { ...current, [cropIndex]: candidate };
       const nextPortions = withPortionDefaults(next);
       setSelectedPortions(nextPortions);
-      setPendingCalories(areCropChoicesComplete(next) ? calculateSelectedCalories(next, nextPortions) : null);
+      setPendingCalories(
+        areCropChoicesComplete(next)
+          ? calculateSelectedCalories(next, nextPortions)
+          : null,
+      );
       return next;
     });
   };
@@ -274,7 +282,9 @@ function UserDashboard() {
     setSelectedPortions((current) => {
       const next = { ...current, [foodKey]: portionKey };
       setPendingCalories(
-        areCropChoicesComplete() ? calculateSelectedCalories(selectedCropChoices, next) : null,
+        areCropChoicesComplete()
+          ? calculateSelectedCalories(selectedCropChoices, next)
+          : null,
       );
       return next;
     });
@@ -356,13 +366,19 @@ function UserDashboard() {
 
     const groupedChoices = getGroupedFoodChoices();
     if (!groupedChoices.length) {
-      showToast("No food was selected. Try another photo or choose at least one food.");
+      showToast(
+        "No food was selected. Try another photo or choose at least one food.",
+      );
       return;
     }
 
-    const caloriesToAdd = calculateSelectedCalories(selectedCropChoices, selectedPortions) ?? 0;
+    const caloriesToAdd =
+      calculateSelectedCalories(selectedCropChoices, selectedPortions) ?? 0;
     const mealName = groupedChoices
-      .map((food) => `${food.label} (${selectedPortions[food.key] || DEFAULT_PORTION_KEY})`)
+      .map(
+        (food) =>
+          `${food.label} (${selectedPortions[food.key] || DEFAULT_PORTION_KEY})`,
+      )
       .join(", ");
 
     try {
@@ -910,14 +926,18 @@ function UserDashboard() {
                           <span>Estimated calories</span>
                           <strong>{pendingCalories ?? "--"}</strong>
                           <small>
-                            {pendingCalories ? "kcal after selection" : "Select labels first"}
+                            {pendingCalories
+                              ? "kcal after selection"
+                              : "Select labels first"}
                           </small>
                         </div>
 
                         {aiPrediction.detections?.length > 0 ? (
                           <div className="ai-crop-review-list">
                             <p className="ai-note">
-                              Review each detected crop, choose a food name, or ignore a wrong box. Same foods are grouped before calories are calculated.
+                              Review each detected crop, choose a food name, or
+                              ignore a wrong box. Same foods are grouped before
+                              calories are calculated.
                             </p>
                             {aiPrediction.detections.map((item, index) => (
                               <div
@@ -927,35 +947,52 @@ function UserDashboard() {
                                 <div className="ai-crop-review-heading">
                                   <strong>Food {index + 1}</strong>
                                   <span>
-                                    box {Math.round((item.segmentation_confidence || item.confidence) * 100)}%
+                                    box{" "}
+                                    {Math.round(
+                                      (item.segmentation_confidence ||
+                                        item.confidence) * 100,
+                                    )}
+                                    %
                                   </span>
                                 </div>
                                 <div className="ai-candidate-options">
-                                  {getCandidateOptions(item).map((candidate) => {
-                                    const selected =
-                                      !selectedCropChoices[index]?.ignore &&
-                                      selectedCropChoices[index]?.label === candidate.label;
-                                    return (
-                                      <button
-                                        type="button"
-                                        key={`${candidate.label}-${candidate.confidence}`}
-                                        className={`ai-candidate-option ${selected ? "selected" : ""}`}
-                                        onClick={() => selectCropChoice(index, candidate)}
-                                      >
-                                        <span>{candidate.label}</span>
-                                        <strong>{Math.round(candidate.confidence * 100)}%</strong>
-                                        <small>
-                                          {candidate.estimated_calories_kcal
-                                            ? `${candidate.estimated_calories_kcal} kcal`
-                                            : "Calories not found"}
-                                        </small>
-                                      </button>
-                                    );
-                                  })}
+                                  {getCandidateOptions(item).map(
+                                    (candidate) => {
+                                      const selected =
+                                        !selectedCropChoices[index]?.ignore &&
+                                        selectedCropChoices[index]?.label ===
+                                          candidate.label;
+                                      return (
+                                        <button
+                                          type="button"
+                                          key={`${candidate.label}-${candidate.confidence}`}
+                                          className={`ai-candidate-option ${selected ? "selected" : ""}`}
+                                          onClick={() =>
+                                            selectCropChoice(index, candidate)
+                                          }
+                                        >
+                                          <span>{candidate.label}</span>
+                                          <strong>
+                                            {Math.round(
+                                              candidate.confidence * 100,
+                                            )}
+                                            %
+                                          </strong>
+                                          <small>
+                                            {candidate.estimated_calories_kcal
+                                              ? `${candidate.estimated_calories_kcal} kcal`
+                                              : "Calories not found"}
+                                          </small>
+                                        </button>
+                                      );
+                                    },
+                                  )}
                                   <button
                                     type="button"
                                     className={`ai-candidate-option ignore ${
-                                      selectedCropChoices[index]?.ignore ? "selected" : ""
+                                      selectedCropChoices[index]?.ignore
+                                        ? "selected"
+                                        : ""
                                     }`}
                                     onClick={() =>
                                       selectCropChoice(index, {
@@ -973,42 +1010,57 @@ function UserDashboard() {
                               </div>
                             ))}
 
-                            {areCropChoicesComplete() && getGroupedFoodChoices().length > 0 && (
-                              <div className="ai-portion-review">
-                                <div className="ai-portion-review-heading">
-                                  <strong>Confirm portions</strong>
-                                  <span>Same foods are counted once</span>
-                                </div>
-                                {getGroupedFoodChoices().map((food) => (
-                                  <div key={food.key} className="ai-portion-row">
-                                    <div>
-                                      <strong>{food.label}</strong>
-                                      <small>
-                                        {food.basePortion
-                                          ? `Base portion ${food.basePortion}g`
-                                          : "Default portion"}
-                                      </small>
-                                    </div>
-                                    <div className="ai-portion-options">
-                                      {PORTION_OPTIONS.map((option) => {
-                                        const selectedPortion =
-                                          (selectedPortions[food.key] || DEFAULT_PORTION_KEY) === option.key;
-                                        return (
-                                          <button
-                                            type="button"
-                                            key={option.key}
-                                            className={selectedPortion ? "selected" : ""}
-                                            onClick={() => selectPortionChoice(food.key, option.key)}
-                                          >
-                                            {option.label}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
+                            {areCropChoicesComplete() &&
+                              getGroupedFoodChoices().length > 0 && (
+                                <div className="ai-portion-review">
+                                  <div className="ai-portion-review-heading">
+                                    <strong>Confirm portions</strong>
+                                    <span>Same foods are counted once</span>
                                   </div>
-                                ))}
-                              </div>
-                            )}
+                                  {getGroupedFoodChoices().map((food) => (
+                                    <div
+                                      key={food.key}
+                                      className="ai-portion-row"
+                                    >
+                                      <div>
+                                        <strong>{food.label}</strong>
+                                        <small>
+                                          {food.basePortion
+                                            ? `Base portion ${food.basePortion}g`
+                                            : "Default portion"}
+                                        </small>
+                                      </div>
+                                      <div className="ai-portion-options">
+                                        {PORTION_OPTIONS.map((option) => {
+                                          const selectedPortion =
+                                            (selectedPortions[food.key] ||
+                                              DEFAULT_PORTION_KEY) ===
+                                            option.key;
+                                          return (
+                                            <button
+                                              type="button"
+                                              key={option.key}
+                                              className={
+                                                selectedPortion
+                                                  ? "selected"
+                                                  : ""
+                                              }
+                                              onClick={() =>
+                                                selectPortionChoice(
+                                                  food.key,
+                                                  option.key,
+                                                )
+                                              }
+                                            >
+                                              {option.label}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                           </div>
                         ) : (
                           <p className="ai-note">
@@ -1383,4 +1435,3 @@ function UserDashboard() {
 }
 
 export default UserDashboard;
-

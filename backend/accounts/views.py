@@ -7,7 +7,9 @@ from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
 from django.db import models
 from django.db.models import Sum
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
 from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
@@ -578,13 +580,23 @@ class PasswordResetRequestView(APIView):
                 f"{settings.FRONTEND_URL}/reset-password-confirm/{uid}/{token}"
             )
 
-            send_mail(
+            # Render HTML email from template and send as HTML alternative
+            context = {
+                "user": user,
+                "reset_url": reset_link,
+            }
+
+            html_message = render_to_string("emails/sumb_password_reset_email.html", context)
+            plain_message = strip_tags(html_message)
+
+            msg = EmailMultiAlternatives(
                 subject="Reset your password",
-                message=f"Use this link to reset your password: {reset_link}",
+                body=plain_message,
                 from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                fail_silently=False,
+                to=[user.email],
             )
+            msg.attach_alternative(html_message, "text/html")
+            msg.send(fail_silently=False)
 
         return Response(
             {"message": "If that email exists, a reset link has been sent."},

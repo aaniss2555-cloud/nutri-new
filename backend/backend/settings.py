@@ -1,7 +1,11 @@
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env file
+load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 SECRET_KEY = "django-insecure-y@1ltflfcc(9q7g$y1)lr(s(8iuj2tz&1_!*bwi$g^5^1_7kr="
 DEBUG = True
@@ -37,7 +41,7 @@ ROOT_URLCONF = "backend.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -56,7 +60,7 @@ DATABASES = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": "nutritiondb",
         "USER": "postgres",
-        "PASSWORD": "1234567",
+        "PASSWORD": "abdou1234",
         "HOST": "localhost",
         "PORT": "5432",
     }
@@ -100,8 +104,13 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
 ]
 
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-DEFAULT_FROM_EMAIL = "noreply@nutritionapp.com"
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "abdouandoudms@gmail.com")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@nutritionapp.com")
 FRONTEND_URL = "http://localhost:5173"
 AI_SERVICE_PREDICT_URL = "http://127.0.0.1:8001/predict"
 ZOOM_ACCOUNT_ID = os.getenv("ZOOM_ACCOUNT_ID", "")
