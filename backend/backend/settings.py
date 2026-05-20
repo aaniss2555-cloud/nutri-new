@@ -105,7 +105,7 @@ REST_FRAMEWORK = {
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
-    "https://firsthostnutri33.vercel.app/"
+    "https://firsthostnutri33.vercel.app"
 ]
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
