@@ -11,8 +11,8 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = [
-    'https://firsthostnutri33.vercel.app',              # رابط الفرونت اند الخاص بك
-    'https://nutri-new.onrender.com',          # رابط الباك اند الخاص بك على Render (بدون https://)
+    'firsthostnutri33.vercel.app',              # رابط الفرونت اند (بدون https)
+    'nutri-new.onrender.com',                  # رابط الباك اند على Render (تم حذف https://)
     '127.0.0.1',
     'localhost',
 ]
@@ -109,7 +109,9 @@ REST_FRAMEWORK = {
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
-    "https://firsthostnutri33.vercel.app"
+    "https://firsthostnutri33.vercel.app",
+    # إضافة احتياطية في حال قام المتصفح بإضافة www
+    "https://www.firsthostnutri33.vercel.app", 
 ]
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
