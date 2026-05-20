@@ -122,7 +122,10 @@ EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "abdouandoudms@gmail.com")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@nutritionapp.com")
 FRONTEND_URL = "http://localhost:5173"
-AI_SERVICE_PREDICT_URL = "http://127.0.0.1:8001/predict"
+AI_SERVICE_PREDICT_URL = os.getenv(
+    "AI_SERVICE_PREDICT_URL", 
+    "http://127.0.0.1:8001/predict"
+)
 ZOOM_ACCOUNT_ID = os.getenv("ZOOM_ACCOUNT_ID", "")
 ZOOM_CLIENT_ID = os.getenv("ZOOM_CLIENT_ID", "")
 ZOOM_CLIENT_SECRET = os.getenv("ZOOM_CLIENT_SECRET", "")
