@@ -105,7 +105,7 @@ REST_FRAMEWORK = {
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
-    "https://agent-6a0cf52069671d3ff767efc8--nutriion.netlify.app"
+    "https://firsthostnutri33.vercel.app/"
 ]
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
