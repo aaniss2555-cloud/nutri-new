@@ -11,7 +11,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = [
-    'firsthostnutri33.vercel.app',              # رابط الفرونت اند الخاص بك
+    'https://firsthostnutri33.vercel.app',              # رابط الفرونت اند الخاص بك
     'https://nutri-new.onrender.com',          # رابط الباك اند الخاص بك على Render (بدون https://)
     '127.0.0.1',
     'localhost',
