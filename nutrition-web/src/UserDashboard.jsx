@@ -3,9 +3,9 @@ import { useNavigate } from "react-router-dom";
 import api from "./services/axiosInstance";
 import { logout } from "./services/Auth";
 import ProgressStrip from "./ProgressStrip";
-import mealExampleOne from "./Assets/meal-example-1.jpg";
-import mealExampleTwo from "./Assets/meal-example-2.jpg";
-import photoCameraIcon from "./Assets/photo-camera.svg";
+import mealExampleOne from "./Assets/logo/meal-example-1.jpg";
+import mealExampleTwo from "./Assets/logo/meal-example-2.jpg";
+import photoCameraIcon from "./Assets/logo/photo-camera.svg";
 
 const PORTION_OPTIONS = [
   { key: "small", label: "Small", multiplier: 0.6 },

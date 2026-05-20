@@ -1,7 +1,11 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:8000/api/accounts/",
+  // إذا كان الموقع يعمل على الإنترنت، استخدم رابط Render، وإلا استخدم localhost
+  baseURL:
+    window.location.hostname === "localhost"
+      ? "http://localhost:8000/api/accounts/"
+      : "https://nutri-new.onrender.com/api/accounts/",
 });
 
 api.interceptors.request.use((config) => {
@@ -27,7 +31,9 @@ api.interceptors.response.use(
       try {
         const refresh = localStorage.getItem("refresh");
         const response = await axios.post(
-          "http://localhost:8000/api/accounts/login/refresh/",
+          window.location.hostname === "localhost"
+            ? "http://localhost:8000/api/accounts/login/refresh/"
+            : "https://nutri-new.onrender.com/api/accounts/login/refresh/",
           { refresh },
         );
 
