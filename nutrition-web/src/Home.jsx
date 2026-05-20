@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import About from "./About";
 import BrandIntro from "./BrandIntro";
-import heroIllustration from "./scr/assets/nutritionist-hero.png";
+import heroIllustration from "./assets/nutritionist-hero.png";
 
 const heroStats = [
   { value: "AI", label: "Food recognition" },
