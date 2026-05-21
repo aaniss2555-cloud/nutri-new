@@ -128,7 +128,8 @@ DEFAULT_FROM_EMAIL = "abdouandoudms@gmail.com"
 # EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "abdouandoudms@gmail.com")
 # EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 # DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@nutritionapp.com")
-FRONTEND_URL = "http://localhost:5173"
+# يقرأ الرابط الفعلي من Render، وإذا لم يجده (أثناء التطوير المحلي) يرجع لـ localhost تلقائياً
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 AI_SERVICE_PREDICT_URL = os.getenv(
     "AI_SERVICE_PREDICT_URL", 
     "http://127.0.0.1:8001/predict"
