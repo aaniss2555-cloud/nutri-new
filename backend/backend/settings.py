@@ -7,11 +7,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Load environment variables from .env file
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
-SECRET_KEY = "django-insecure-y@1ltflfcc(9q7g$y1)lr(s(8iuj2tz&1_!*bwi$g^5^1_7kr="
-DEBUG = True
+SECRET_KEY = os.getenv("SECRET_KEY")
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = [
+    'firsthostnutri33.vercel.app',              # رابط الفرونت اند (بدون https)
+    'nutri-new.onrender.com',                  # رابط الباك اند على Render (تم حذف https://)
+    '127.0.0.1',
+    'localhost',
+]
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -56,13 +60,16 @@ TEMPLATES = [
 WSGI_APPLICATION = "backend.wsgi.application"
 
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "nutritiondb",
-        "USER": "postgres",
-        "PASSWORD": "abdou1234",
-        "HOST": "localhost",
-        "PORT": "5432",
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'postgres',
+        'USER': os.getenv('DATABASE_USER'),
+        'PASSWORD': os.getenv('DATABASE_PASSWORD'),
+        'HOST': os.getenv('DATABASE_HOST'),
+        'PORT': os.getenv('DATABASE_PORT'),
+        'OPTIONS': {
+            'sslmode': 'require', # هام جداً للاتصال بـ Supabase
+        },
     }
 }
 
@@ -102,6 +109,9 @@ REST_FRAMEWORK = {
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
+    "https://firsthostnutri33.vercel.app",
+    # إضافة احتياطية في حال قام المتصفح بإضافة www
+    "https://www.firsthostnutri33.vercel.app", 
 ]
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
@@ -113,7 +123,10 @@ EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "abdouandoudms@gmail.com")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@nutritionapp.com")
 FRONTEND_URL = "http://localhost:5173"
-AI_SERVICE_PREDICT_URL = "http://127.0.0.1:8001/predict"
+AI_SERVICE_PREDICT_URL = os.getenv(
+    "AI_SERVICE_PREDICT_URL", 
+    "http://127.0.0.1:8001/predict"
+)
 ZOOM_ACCOUNT_ID = os.getenv("ZOOM_ACCOUNT_ID", "")
 ZOOM_CLIENT_ID = os.getenv("ZOOM_CLIENT_ID", "")
 ZOOM_CLIENT_SECRET = os.getenv("ZOOM_CLIENT_SECRET", "")

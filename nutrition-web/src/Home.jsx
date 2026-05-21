@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import About from "./About";
 import BrandIntro from "./BrandIntro";
-import heroIllustration from "./Assets/nutritionist-hero.png";
+import heroIllustration from "./assets/nutritionist-hero.png";
 
 const heroStats = [
   { value: "AI", label: "Food recognition" },
@@ -42,7 +42,9 @@ function Home() {
       <main className="home svmb-home">
         <section className="svmb-hero">
           <div className="svmb-hero-copy">
-            <span className="svmb-eyebrow">Personalized dietary assessment</span>
+            <span className="svmb-eyebrow">
+              Personalized dietary assessment
+            </span>
             <h1>Nutrition care, made structured and measurable.</h1>
             <p className="svmb-hero-lead">
               A calm digital space where clients book consultations, receive
@@ -51,7 +53,10 @@ function Home() {
             </p>
 
             <div className="hero-actions svmb-actions">
-              <button className="start-btn" onClick={() => navigate("/subscriptions")}>
+              <button
+                className="start-btn"
+                onClick={() => navigate("/subscriptions")}
+              >
                 Explore Subscriptions
               </button>
               <button
@@ -64,14 +69,20 @@ function Home() {
             </div>
           </div>
 
-          <aside className="svmb-hero-panel" aria-label="Platform workflow preview">
+          <aside
+            className="svmb-hero-panel"
+            aria-label="Platform workflow preview"
+          >
             <div className="svmb-panel-topline">
               <span>SVMB Platform</span>
               <strong>AI + professional guidance</strong>
             </div>
 
             <div className="svmb-plate-frame">
-              <img src={heroIllustration} alt="Nutritionist writing a personalized nutrition plan" />
+              <img
+                src={heroIllustration}
+                alt="Nutritionist writing a personalized nutrition plan"
+              />
             </div>
 
             <div className="svmb-system-steps">

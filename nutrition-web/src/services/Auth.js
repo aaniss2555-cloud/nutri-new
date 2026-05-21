@@ -1,7 +1,12 @@
 import api from "./axiosInstance";
 import axios from "axios";
 
-const AUTH_BASE = "http://localhost:8000/api/accounts/";
+// بدلاً من رابط كامل، اجعل المسار نسبي أو أرسل الطلب عبر الـ api مباشرة
+// إذا كنت تحتاج فقط المسار الأساسي كـ string:
+const AUTH_BASE =
+  window.location.hostname === "localhost"
+    ? "http://localhost:8000/api/accounts/"
+    : "https://nutri-new.onrender.com/api/accounts/";
 
 export const register = async (payload) => {
   return axios.post(`${AUTH_BASE}register/`, payload);

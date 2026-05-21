@@ -544,7 +544,7 @@ class MealPredictView(APIView):
                         content_type,
                     )
                 },
-                timeout=30,
+                timeout=90,
             )
         except RequestException:
             return Response(
