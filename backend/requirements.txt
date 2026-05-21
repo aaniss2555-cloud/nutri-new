@@ -16,3 +16,4 @@ requests==2.33.1
 sqlparse==0.5.5
 tzdata==2026.2
 urllib3==2.6.3
+django-anymail[brevo]==12.0
